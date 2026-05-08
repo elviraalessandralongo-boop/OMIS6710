@@ -1667,9 +1667,10 @@ function renderPeakObsession() {
       weeks[wk] = (weeks[wk] || 0) + 1;
     }
 
-    results.push({ artist, track, totalPlays, peakCount, peakDate, recentPlays, dropOff, weeks });
+    const lastPlayed = dates[dates.length - 1];
+    results.push({ artist, track, totalPlays, peakCount, peakDate, recentPlays, dropOff, weeks, lastPlayed });
   }
-  results.sort((a,b) => b.dropOff - a.dropOff);
+  results.sort((a,b) => b.lastPlayed - a.lastPlayed);
 
   let html = `
     <div class="stat-row">
