@@ -1539,6 +1539,7 @@ function renderOneHit() {
   // Count plays per artist and per track
   const artistPlays = {};
   const artistTracks = {};
+  const artistLastTs = {};
   for (const r of State.music) {
     const artist = r.master_metadata_album_artist_name;
     const track = r.master_metadata_track_name;
@@ -1546,6 +1547,8 @@ function renderOneHit() {
     artistPlays[artist] = (artistPlays[artist] || 0) + 1;
     if (!artistTracks[artist]) artistTracks[artist] = {};
     artistTracks[artist][track] = (artistTracks[artist][track] || 0) + 1;
+    const ts = new Date(r.ts).getTime();
+    if (!artistLastTs[artist] || ts > artistLastTs[artist]) artistLastTs[artist] = ts;
   }
 
   const results = [];
@@ -1556,9 +1559,9 @@ function renderOneHit() {
     const pct = topTrack[1] / total;
     if (pct < 0.7) continue;
     const uniqueTracks = Object.keys(tracks).length;
-    results.push({ artist, topTrack: topTrack[0], topTrackPlays: topTrack[1], total, pct, uniqueTracks });
+    results.push({ artist, topTrack: topTrack[0], topTrackPlays: topTrack[1], total, pct, uniqueTracks, lastTs: artistLastTs[artist] });
   }
-  results.sort((a,b) => b.pct - a.pct);
+  results.sort((a,b) => b.lastTs - a.lastTs);
 
   if (!results.length) {
     el.innerHTML = emptyState('🎨','No one-hit wonders found','You listen to your artists more broadly. Respect.');
