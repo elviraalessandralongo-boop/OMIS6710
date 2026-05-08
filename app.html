@@ -949,10 +949,6 @@ function episodeCompletion(ep, showTypical) {
 ═══════════════════════════════════════════ */
 function renderGuiltQueue() {
   const el = document.getElementById('guilt-queue-content');
-  if (!State.podcasts.length) {
-    el.innerHTML = emptyState('🎙️','No podcast data found','This tool requires podcast records in your streaming history. Load a Spotify export that includes podcast listening.');
-    return;
-  }
 
   // Build welcome banner HTML (only first time per dataset load)
   let bannerHtml = '', bannerData = null;
@@ -975,6 +971,12 @@ function renderGuiltQueue() {
         <div style="text-align:center"><div id="wb-hrs" style="font-family:'Fraunces',serif;font-size:1.5rem;font-weight:700;color:var(--purple)">—</div><div style="font-size:0.7rem;color:var(--text3);margin-top:2px">hours listened</div></div>
       </div>
     </div>`;
+  }
+
+  if (!State.podcasts.length) {
+    el.innerHTML = bannerHtml + emptyState('🎙️','No podcast data found','This tool requires podcast records in your streaming history. Load a Spotify export that includes podcast listening.');
+    if (bannerData) animateBannerCounts(bannerData);
+    return;
   }
 
   // Intentional = searchquery OR clickrow (explicit user selection)
@@ -1177,9 +1179,14 @@ function renderBinge() {
     </div>`;
 
   const top = sessions.slice(0,15);
+  if (sessions.length > top.length) {
+    html += `<div style="margin-bottom:16px;font-size:0.75rem;color:var(--text3)">Showing top ${top.length} of ${fmtNum(sessions.length)} sessions by total listening time</div>`;
+  }
   top.forEach((session, i) => {
     const totalMs = session.reduce((s,r) => s + (r.ms_played||0), 0);
-    const date = new Date(session[0].ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    // ts is end-time; subtract first episode duration to get session start
+    const sessionStartMs = new Date(session[0].ts).getTime() - (session[0].ms_played || 0);
+    const date = new Date(sessionStartMs).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
     const shows = [...new Set(session.map(r => r.episode_show_name))];
     const mainShow = shows[0];
     const multiShow = shows.length > 1 ? ` + ${shows.length-1} other${shows.length>2?'s':''}` : '';
@@ -1619,10 +1626,11 @@ function renderForgotten() {
       const artist = r.master_metadata_album_artist_name;
       if (!track) continue;
       const key = `${artist}||${track}`;
-      if (!trackData[key]) trackData[key] = { track, artist, plays: 0, lastPlayed: null };
+      if (!trackData[key]) trackData[key] = { track, artist, plays: 0, lastPlayed: null, firstPlayed: null };
       trackData[key].plays++;
       const d = new Date(r.ts);
       if (!trackData[key].lastPlayed || d > trackData[key].lastPlayed) trackData[key].lastPlayed = d;
+      if (!trackData[key].firstPlayed || d < trackData[key].firstPlayed) trackData[key].firstPlayed = d;
     }
     // Add daysSince while we have `now`
     for (const t of Object.values(trackData)) {
@@ -1679,6 +1687,7 @@ function renderForgottenList(dormantDays) {
 
   results.slice(0, FG_MAX).forEach((r, i) => {
     const lastStr = r.lastPlayed.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    const firstStr = r.firstPlayed ? r.firstPlayed.toLocaleDateString('en-US',{month:'short',year:'numeric'}) : '?';
     const silencePct = Math.round((r.daysSince / maxDaysSince) * 100);
     const silenceColor = r.daysSince > 365 ? 'var(--red)' : r.daysSince > 180 ? 'var(--amber)' : 'var(--text3)';
     html += `<li>
@@ -1688,7 +1697,7 @@ function renderForgottenList(dormantDays) {
         <div class="result-sub">${escHtml(r.artist)}</div>
         <div class="result-stats" style="margin-bottom:8px">
           <span class="result-stat">Total plays: <strong>${r.plays}</strong></span>
-          <span class="result-stat">Last played: <strong>${lastStr}</strong></span>
+          <span class="result-stat">Active: <strong>${firstStr} → ${lastStr}</strong></span>
           <span class="result-stat">Silent for: <strong style="color:${silenceColor}">${fmtNum(r.daysSince)} days</strong></span>
         </div>
         <div class="bar-wrap" style="max-width:280px">
@@ -1768,11 +1777,13 @@ function renderBrain() {
     dowRange.reduce((s, d) => s + (grid[`${d}-${h}`] || 0), 0)
   );
 
-  const WKDAYS = [0,1,2,3,4], ALL = [0,1,2,3,4,5,6];
+  const WKDAYS = [0,1,2,3,4], WKENDS = [5,6], ALL = [0,1,2,3,4,5,6];
   const mByHour = hourTotals(mGrid, ALL);
   const pByHour = hourTotals(pGrid, ALL);
   const mByHourWD = hourTotals(mGrid, WKDAYS);
   const pByHourWD = hourTotals(pGrid, WKDAYS);
+  const mByHourWE = hourTotals(mGrid, WKENDS);
+  const pByHourWE = hourTotals(pGrid, WKENDS);
 
   const peakOf = arr => arr.indexOf(Math.max(...arr));
   const mPeak = peakOf(mByHour);
@@ -1794,6 +1805,13 @@ function renderBrain() {
     }
   }
 
+  // Weekend vs weekday totals
+  const wdTotal  = WKDAYS.reduce((s,d) => s + hours.reduce((t,h) => t + (mGrid[`${d}-${h}`]||0) + (pGrid[`${d}-${h}`]||0), 0), 0);
+  const weTotal  = WKENDS.reduce((s,d) => s + hours.reduce((t,h) => t + (mGrid[`${d}-${h}`]||0) + (pGrid[`${d}-${h}`]||0), 0), 0);
+  const wdPerDay = wdTotal / 5;
+  const wePerDay = weTotal / 2;
+  const wePeak   = peakOf(mByHourWE.map((m,i) => m + pByHourWE[i]));
+
   // Compose the insight sentence
   const insightParts = [];
   if (State.music.length && State.podcasts.length) {
@@ -1810,6 +1828,17 @@ function renderBrain() {
     insightParts.push(`Your music peaks around <strong style="color:var(--accent2)">${fmtHour(mPeak)}</strong>.`);
   } else if (State.podcasts.length) {
     insightParts.push(`Your podcast listening peaks around <strong style="color:var(--blue)">${fmtHour(pPeak)}</strong>.`);
+  }
+  // Weekend vs weekday pattern
+  if (wdTotal > 0 && weTotal > 0) {
+    const ratio = wePerDay / wdPerDay;
+    if (ratio > 1.3) {
+      insightParts.push(`Weekends are significantly busier — you listen about <strong style="color:var(--accent2)">${Math.round(ratio * 10) / 10}×</strong> more per day, peaking around <strong>${fmtHour(wePeak)}</strong>.`);
+    } else if (ratio < 0.7) {
+      insightParts.push(`Weekdays dominate your listening — you're <strong style="color:var(--accent2)">${Math.round((1/ratio) * 10) / 10}×</strong> more active on weekdays than weekends.`);
+    } else {
+      insightParts.push(`Your listening is fairly consistent across the week — weekdays and weekends have similar volumes.`);
+    }
   }
 
   el.innerHTML = `
@@ -1976,9 +2005,12 @@ function renderPersonality() {
     const y = trendHeight - barH;
     if (podH > 0) trendSvg += `<rect x="${x}" y="${y}" width="${trendBw}" height="${podH}" fill="rgba(92,143,224,0.7)" rx="2"/>`;
     if (musicH > 0) trendSvg += `<rect x="${x}" y="${y+podH}" width="${trendBw}" height="${musicH}" fill="rgba(29,185,84,0.75)" rx="2"/>`;
-    // Label every 6 months
+    // Label every 6 months as "Jan '24"
     if (i % 6 === 0) {
-      const label = d.m.slice(0,4) + '\'' + d.m.slice(5,7);
+      const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const mo = parseInt(d.m.slice(5,7), 10) - 1;
+      const yr = d.m.slice(2,4);
+      const label = monthNames[mo] + ' \'' + yr;
       trendSvg += `<text x="${x + trendBw/2}" y="${trendHeight + 16}" text-anchor="middle" fill="#5a5a70" font-size="9" font-family="Space Grotesk,sans-serif">${label}</text>`;
     }
   });
