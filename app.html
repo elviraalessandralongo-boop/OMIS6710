@@ -1098,7 +1098,7 @@ function renderHooked() {
     const completionRate = episodeCompletion(ep, showTypical);
     if (completionRate === null || completionRate < 0.8) continue;
     const firstPlay = ep.plays[0];
-    results.push({ ...ep, autoFrac, completionRate, firstStart: firstPlay?.reason_start });
+    results.push({ ...ep, autoFrac, completionRate, firstStart: firstPlay?.reason_start, firstTs: firstPlay?.ts });
   }
   results.sort((a,b) => b.completionRate - a.completionRate);
 
@@ -1135,11 +1135,12 @@ function renderHooked() {
   top.forEach((ep, i) => {
     const pct = Math.round(ep.completionRate * 100);
     const how = reasonLabel(ep.firstStart);
+    const year = ep.firstTs ? new Date(ep.firstTs).getFullYear() : null;
     html += `<li>
       <div class="result-num">${i+1}</div>
       <div class="result-body">
         <div class="result-title">${escHtml(ep.name)}</div>
-        <div class="result-sub">${escHtml(ep.show)}</div>
+        <div class="result-sub">${escHtml(ep.show)}${year ? `<span style="color:var(--text3);font-weight:400"> · ${year}</span>` : ''}</div>
         <div class="result-stats">
           <span class="result-stat">How it started: <strong>${how}</strong></span>
           <span class="result-stat">Completed: <strong>~${pct}%</strong></span>
