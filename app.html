@@ -1514,18 +1514,18 @@ function renderOneHit() {
   results.slice(0, OHW_MAX).forEach((r, i) => {
     const pct = Math.round(r.pct * 100);
     const onlySong = r.uniqueTracks === 1;
-    const subline = onlySong
-      ? `You've <em>only ever</em> played one song by them: <strong style="color:var(--accent2)">"${escHtml(r.topTrack)}"</strong>`
-      : `Out of ${r.uniqueTracks} songs played, you basically only play: <strong style="color:var(--accent2)">"${escHtml(r.topTrack)}"</strong>`;
+    const note = onlySong
+      ? `The only song you've ever played by this artist`
+      : `${pct}% of your ${r.total} plays — out of ${r.uniqueTracks} tracks`;
     html += `<li>
       <div class="result-num">${i+1}</div>
       <div class="result-body">
-        <div class="result-title">${escHtml(r.artist)}</div>
-        <div class="result-sub" style="margin-bottom:6px">${subline}</div>
+        <div class="result-title">${escHtml(r.topTrack)}</div>
+        <div class="result-sub">${escHtml(r.artist)}</div>
+        <div style="font-size:0.78rem;color:var(--text3);margin-bottom:8px;margin-top:2px;font-style:italic">${note}</div>
         <div class="result-stats">
-          <span class="result-stat">Total plays: <strong>${r.total}</strong></span>
-          <span class="result-stat">That one song: <strong>${r.topTrackPlays}×</strong></span>
-          <span class="result-stat">Unique tracks: <strong>${r.uniqueTracks}</strong></span>
+          <span class="result-stat">Total artist plays: <strong>${r.total}</strong></span>
+          <span class="result-stat">This song: <strong>${r.topTrackPlays}×</strong></span>
           <span class="result-stat">Concentration: <strong>${pct}%</strong></span>
         </div>
         <div class="bar-wrap" style="margin-top:8px;max-width:300px">
