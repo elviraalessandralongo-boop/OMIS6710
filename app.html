@@ -966,7 +966,14 @@ function episodeCompletion(ep, showTypical) {
 /* ═══════════════════════════════════════════
    TOOL 1: GUILT QUEUE
 ═══════════════════════════════════════════ */
-function renderGuiltQueue() {
+const GUILT_WINDOWS = [
+  { label: 'Last 30 days',  days: 30  },
+  { label: 'Last 3 months', days: 90  },
+  { label: 'Last year',     days: 365 },
+  { label: 'All time',      days: null },
+];
+
+function renderGuiltQueue(windowIdx = 3) {
   const el = document.getElementById('guilt-queue-content');
 
   // Build welcome banner HTML (only first time per dataset load)
@@ -998,24 +1005,34 @@ function renderGuiltQueue() {
     return;
   }
 
-  // Intentional = searchquery OR clickrow (explicit user selection)
   const INTENTIONAL = new Set(['searchquery','clickrow','playbtn']);
   const { showTypical, episodes } = buildPodcastData();
+
+  const win = GUILT_WINDOWS[windowIdx];
+  const cutoff = win.days ? new Date(Date.now() - win.days * 86400000) : null;
+  const toggleHtml = GUILT_WINDOWS.map((w, i) =>
+    `<button class="toggle-btn${i === windowIdx ? ' active' : ''}" onclick="renderGuiltQueue(${i})">${w.label}</button>`
+  ).join('');
 
   const results = [];
   for (const [key, ep] of Object.entries(episodes)) {
     const intentPlays = ep.plays.filter(r => INTENTIONAL.has(r.reason_start));
     if (!intentPlays.length) continue;
+    // Most recent intentional play timestamp
+    const lastIntentTs = new Date(Math.max(...intentPlays.map(r => new Date(r.ts).getTime())));
+    if (cutoff && lastIntentTs < cutoff) continue;
     const completionRate = episodeCompletion(ep, showTypical);
     if (completionRate === null || completionRate >= 0.4) continue;
     const intentScore = intentPlays.length / ep.plays.length;
     const score = intentScore * (1 - completionRate);
-    results.push({ ...ep, intentPlays: intentPlays.length, totalPlays: ep.plays.length, completionRate, score });
+    results.push({ ...ep, intentPlays: intentPlays.length, totalPlays: ep.plays.length, completionRate, score, lastIntentTs });
   }
-  results.sort((a,b) => b.score - a.score);
+  // Sort by most recently abandoned first
+  results.sort((a, b) => b.lastIntentTs - a.lastIntentTs);
 
   if (!results.length) {
-    el.innerHTML = bannerHtml + emptyState('✅','No guilt here!','You actually finish what you intentionally start. Either that, or you\'re careful about what you begin.');
+    el.innerHTML = bannerHtml + `<div class="toggle-row">${toggleHtml}</div>` +
+      emptyState('✅','No guilt here!',`Nothing intentionally started and abandoned in the ${win.label.toLowerCase()} window. Try a longer timeframe.`);
     if (bannerData) animateBannerCounts(bannerData);
     return;
   }
@@ -1023,13 +1040,14 @@ function renderGuiltQueue() {
   const SHOW_MAX = 20;
   const top = results.slice(0, SHOW_MAX);
   let html = bannerHtml + `
+    <div class="toggle-row">${toggleHtml}</div>
     <div class="stat-row">
       <div class="stat-box"><div class="stat-box-val" id="gq-count">0</div><div class="stat-box-label">Abandoned Episodes</div></div>
       <div class="stat-box"><div class="stat-box-val" id="gq-shows">0</div><div class="stat-box-label">Abandoned Podcasts</div></div>
       <div class="stat-box"><div class="stat-box-val" id="gq-avg">—</div><div class="stat-box-label">Avg Completion</div></div>
     </div>
     <div style="margin-bottom:4px;font-size:0.78rem;color:var(--text3);font-style:italic">
-      "Intentional" = clicked on directly (not autoplay). Completion estimated from show's typical episode length. Ranked by intent × incompletion.
+      "Intentional" = clicked on directly (not autoplay). Completion estimated from show's typical episode length. Sorted by most recently abandoned.
     </div>
     ${results.length > SHOW_MAX ? `<div style="margin-bottom:16px;font-size:0.75rem;color:var(--text3)">Showing top ${SHOW_MAX} of ${fmtNum(results.length)}</div>` : '<div style="margin-bottom:16px"></div>'}
     <ul class="result-list">`;
@@ -1037,14 +1055,15 @@ function renderGuiltQueue() {
   top.forEach((ep, i) => {
     const pct = Math.round(ep.completionRate * 100);
     const badge = i < 3 ? '<span class="badge badge-red">No excuse</span>' : '';
+    const lastTried = ep.lastIntentTs.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
     html += `<li>
       <div class="result-num">${i+1}</div>
       <div class="result-body">
         <div class="result-title">${escHtml(ep.name)} ${badge}</div>
         <div class="result-sub">${escHtml(ep.show)}</div>
         <div class="result-stats">
+          <span class="result-stat">Last tried: <strong>${lastTried}</strong></span>
           <span class="result-stat">Started <strong>${ep.totalPlays}×</strong></span>
-          <span class="result-stat">Intentional: <strong>${ep.intentPlays}</strong></span>
           <span class="result-stat">~Completed: <strong>${pct}%</strong></span>
         </div>
         <div class="bar-wrap" style="margin-top:8px;max-width:300px">
