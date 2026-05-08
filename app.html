@@ -780,6 +780,7 @@ function setProgress(pct, msg) {
 function showError(msg) {
   const el = document.getElementById('landing-error');
   el.style.display = 'block';
+  el.style.whiteSpace = 'pre-line';
   el.textContent = msg;
 }
 
@@ -802,10 +803,24 @@ async function handleFile(file) {
       const parsed = JSON.parse(raw);
       all = all.concat(parsed);
     }
-    setProgress(80, 'Filtering and separating records…');
+    setProgress(80, `Processing ${fmtNum(all.length)} records…`);
     processData(all);
-    setProgress(100, 'Done!');
-    // Unlock nav items
+
+    if (!State.music.length && !State.podcasts.length) {
+      document.getElementById('landing-progress').style.display = 'none';
+      const hasBasic = all.some(r => r.trackName || r.artistName || r.endTime);
+      const keys = all[0] ? Object.keys(all[0]).join(', ') : 'none';
+      if (hasBasic) {
+        showError('This looks like a Basic Streaming History export. This app needs the Extended Streaming History format.\n\nIn Spotify: Profile → Account → Security and privacy → Privacy settings → scroll to "Extended streaming history" and request it. (Different from the regular "Account data" export.)');
+      } else if (!all.length) {
+        showError('The zip appears empty — no records were found inside the JSON files.');
+      } else {
+        showError(`Loaded ${fmtNum(all.length)} records but none matched the expected format.\n\nFirst record fields: ${keys}\n\nMake sure this is a Spotify Extended Streaming History zip (files named Streaming_History_Audio_*.json).`);
+      }
+      return;
+    }
+
+    setProgress(100, `Done! ${fmtNum(State.music.length)} music · ${fmtNum(State.podcasts.length)} podcast`);
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('locked'));
     const allDates = [...State.music, ...State.podcasts].map(r => r.ts).sort();
     const yearFrom = allDates[0]?.slice(0,4) || '';
