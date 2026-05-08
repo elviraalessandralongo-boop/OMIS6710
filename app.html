@@ -1666,7 +1666,14 @@ function buildSparkline(weekMap, width, height) {
 /* ═══════════════════════════════════════════
    TOOL 7: FORGOTTEN PLAYS
 ═══════════════════════════════════════════ */
-function renderForgotten() {
+const FORGOTTEN_WINDOWS = [
+  { label: '3 months', days: 90  },
+  { label: '6 months', days: 180 },
+  { label: '9 months', days: 270 },
+  { label: '1 year',   days: 365 },
+];
+
+function renderForgotten(windowIdx = 0) {
   const el = document.getElementById('forgotten-content');
   if (!State.music.length) {
     el.innerHTML = emptyState('🎵','No music data','Load a Spotify export with music listening history.');
@@ -1688,51 +1695,31 @@ function renderForgotten() {
       if (!trackData[key].lastPlayed || d > trackData[key].lastPlayed) trackData[key].lastPlayed = d;
       if (!trackData[key].firstPlayed || d < trackData[key].firstPlayed) trackData[key].firstPlayed = d;
     }
-    // Add daysSince while we have `now`
-    for (const t of Object.values(trackData)) {
-      t.daysSince = Math.floor((now - t.lastPlayed) / 86400000);
+    for (const rec of Object.values(trackData)) {
+      rec.daysSince = Math.floor((now - rec.lastPlayed) / 86400000);
     }
-    State.computed._forgottenTrackData = Object.values(trackData).filter(t => t.plays >= 10);
+    State.computed._forgottenTrackData = Object.values(trackData).filter(rec => rec.plays >= 10);
   }
 
-  const content = document.createElement('div');
-  content.innerHTML = `
-    <div class="slider-row">
-      <label>Dormant threshold:</label>
-      <input type="range" id="forgotten-slider" min="0" max="3" step="1" value="0">
-      <div class="slider-val" id="forgotten-val">3 months</div>
-    </div>
-    <div id="forgotten-list"></div>`;
-  el.innerHTML = '';
-  el.appendChild(content);
-
-  const thresholds = [90, 180, 270, 365];
-  const labels = ['3 months', '6 months', '9 months', '1 year'];
-  const slider = document.getElementById('forgotten-slider');
-  let sliderTimer = null;
-  slider.addEventListener('input', () => {
-    document.getElementById('forgotten-val').textContent = labels[slider.value];
-    clearTimeout(sliderTimer);
-    sliderTimer = setTimeout(() => renderForgottenList(thresholds[slider.value]), 180);
-  });
-  renderForgottenList(90);
-}
-
-function renderForgottenList(dormantDays) {
-  const el = document.getElementById('forgotten-list');
+  const win = FORGOTTEN_WINDOWS[windowIdx];
+  const toggleHtml = FORGOTTEN_WINDOWS.map((w, i) =>
+    `<button class="toggle-btn${i === windowIdx ? ' active' : ''}" onclick="renderForgotten(${i})">${w.label}</button>`
+  ).join('');
 
   const results = State.computed._forgottenTrackData
-    .filter(t => t.daysSince > dormantDays)
-    .sort((a,b) => b.plays - a.plays);
-  const maxDaysSince = results.reduce((mx,r) => r.daysSince > mx ? r.daysSince : mx, 1);
+    .filter(rec => rec.daysSince > win.days)
+    .sort((a, b) => b.plays - a.plays);
 
   if (!results.length) {
-    el.innerHTML = emptyState('💚','No forgotten songs','You\'re still playing everything in your history, or nothing has been quiet long enough yet.');
+    el.innerHTML = `<div class="toggle-row">${toggleHtml}</div>` +
+      emptyState('💚','No forgotten songs',`No songs have been quiet for more than ${win.label}. Try a shorter threshold.`);
     return;
   }
 
+  const maxDaysSince = results.reduce((mx, r) => r.daysSince > mx ? r.daysSince : mx, 1);
   const FG_MAX = 30;
   let html = `
+    <div class="toggle-row">${toggleHtml}</div>
     <div class="stat-row">
       <div class="stat-box"><div class="stat-box-val" id="fg-count">—</div><div class="stat-box-label">Forgotten Songs</div></div>
       <div class="stat-box"><div class="stat-box-val" id="fg-plays">—</div><div class="stat-box-label">Most Played (Then Abandoned)</div></div>
