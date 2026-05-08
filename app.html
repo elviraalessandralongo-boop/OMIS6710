@@ -1113,9 +1113,23 @@ function renderHooked() {
     ${results.length > SHOW_MAX ? `<div style="margin-bottom:16px;font-size:0.75rem;color:var(--text3)">Showing top ${SHOW_MAX} of ${fmtNum(results.length)}</div>` : ''}
     <ul class="result-list">`;
 
+  const reasonLabel = r => ({
+    autoplay:    'Spotify autoplayed it',
+    trackdone:   'previous episode ended',
+    fwdbtn:      'you skipped forward into it',
+    backbtn:     'you skipped back to it',
+    clickrow:    'you clicked it in a list',
+    playbtn:     'you hit play on it',
+    searchquery: 'you found it via search',
+    remote:      'remote / external control',
+    appload:     'app opened to it',
+    trackerror:  'previous episode errored out',
+    unknown:     'unknown',
+  }[r] || r || 'Spotify autoplayed it');
+
   top.forEach((ep, i) => {
     const pct = Math.round(ep.completionRate * 100);
-    const how = ep.firstStart || 'autoplay';
+    const how = reasonLabel(ep.firstStart);
     html += `<li>
       <div class="result-num">${i+1}</div>
       <div class="result-body">
