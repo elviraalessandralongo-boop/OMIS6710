@@ -1102,22 +1102,26 @@ function renderBinge() {
     return;
   }
 
-  // Sort by timestamp
-  const sorted = [...State.podcasts].sort((a,b) => new Date(a.ts) - new Date(b.ts));
-  const GAP_MS = 30 * 60 * 1000; // 30 min
-
-  const sessions = [];
-  let current = [sorted[0]];
-  for (let i = 1; i < sorted.length; i++) {
-    const gap = new Date(sorted[i].ts) - new Date(sorted[i-1].ts);
-    if (gap <= GAP_MS) {
-      current.push(sorted[i]);
-    } else {
-      if (current.length >= 3) sessions.push(current);
-      current = [sorted[i]];
+  // Cache sessions computation (expensive for large podcast datasets)
+  if (!State.computed._bingeSessions) {
+    const GAP_MS = 30 * 60 * 1000;
+    const result = [];
+    let current = [State.podcasts[0]];
+    for (let i = 1; i < State.podcasts.length; i++) {
+      const endPrev   = new Date(State.podcasts[i-1].ts).getTime();
+      const startCurr = new Date(State.podcasts[i].ts).getTime() - (State.podcasts[i].ms_played || 0);
+      if (startCurr - endPrev <= GAP_MS) {
+        current.push(State.podcasts[i]);
+      } else {
+        if (current.length >= 3) result.push([...current]);
+        current = [State.podcasts[i]];
+      }
     }
+    if (current.length >= 3) result.push([...current]);
+    State.computed._bingeSessions = result;
+    State.computed.bingeSessions = result.length; // also cache count for personality
   }
-  if (current.length >= 3) sessions.push(current);
+  const sessions = State.computed._bingeSessions;
 
   if (!sessions.length) {
     el.innerHTML = emptyState('📚','No binge sessions found','You\'ve never played 3+ podcast episodes back-to-back within 30 minutes of each other. Impressive restraint.');
@@ -1469,7 +1473,9 @@ function renderPeakObsession() {
 
   const results = [];
   for (const [key, totalPlays] of top30) {
-    const [artist, track] = key.split('||');
+    const sep = key.indexOf('||');
+    const artist = key.slice(0, sep);
+    const track  = key.slice(sep + 2);
     const dates = trackDates[key].sort((a,b) => a-b);
 
     // Find 4-week rolling window with most plays
@@ -1616,9 +1622,9 @@ function renderForgottenList(dormantDays) {
 
   let html = `
     <div class="stat-row">
-      <div class="stat-box"><div class="stat-box-val">${results.length.toLocaleString()}</div><div class="stat-box-label">Forgotten Songs</div></div>
-      <div class="stat-box"><div class="stat-box-val">${results[0]?.plays || 0}</div><div class="stat-box-label">Most Played (Then Abandoned)</div></div>
-      <div class="stat-box"><div class="stat-box-val">${results[0]?.daysSince || 0}d</div><div class="stat-box-label">Longest Silence (days)</div></div>
+      <div class="stat-box"><div class="stat-box-val" id="fg-count">—</div><div class="stat-box-label">Forgotten Songs</div></div>
+      <div class="stat-box"><div class="stat-box-val" id="fg-plays">—</div><div class="stat-box-label">Most Played (Then Abandoned)</div></div>
+      <div class="stat-box"><div class="stat-box-val" id="fg-days">—</div><div class="stat-box-label">Longest Silence</div></div>
     </div>
     <ul class="result-list">`;
 
@@ -1639,6 +1645,11 @@ function renderForgottenList(dormantDays) {
   });
   html += '</ul>';
   el.innerHTML = html;
+
+  animateCount(document.getElementById('fg-count'), results.length);
+  animateCount(document.getElementById('fg-plays'), results[0]?.plays || 0);
+  const longestSilence = results.reduce((mx, r) => r.daysSince > mx ? r.daysSince : mx, 0);
+  document.getElementById('fg-days').textContent = fmtNum(longestSilence) + 'd';
 }
 
 /* ═══════════════════════════════════════════
@@ -1782,21 +1793,38 @@ function renderPersonality() {
   if (State.computed.bingeSessions === undefined) {
     if (!State.podcasts.length) {
       State.computed.bingeSessions = 0;
+      State.computed._bingeSessions = [];
     } else {
-      const sorted = [...State.podcasts].sort((a,b) => new Date(a.ts)-new Date(b.ts));
-      let count = 0, current = [sorted[0]];
-      for (let i=1;i<sorted.length;i++) {
-        if (new Date(sorted[i].ts)-new Date(sorted[i-1].ts) <= 30*60*1000) { current.push(sorted[i]); }
-        else { if(current.length>=3) count++; current=[sorted[i]]; }
+      // Reuse cached sessions if available, otherwise compute
+      if (!State.computed._bingeSessions) {
+        const GAP_MS = 30 * 60 * 1000;
+        const result = [];
+        let current = [State.podcasts[0]];
+        for (let i = 1; i < State.podcasts.length; i++) {
+          const endPrev   = new Date(State.podcasts[i-1].ts).getTime();
+          const startCurr = new Date(State.podcasts[i].ts).getTime() - (State.podcasts[i].ms_played || 0);
+          if (startCurr - endPrev <= GAP_MS) {
+            current.push(State.podcasts[i]);
+          } else {
+            if (current.length >= 3) result.push([...current]);
+            current = [State.podcasts[i]];
+          }
+        }
+        if (current.length >= 3) result.push([...current]);
+        State.computed._bingeSessions = result;
       }
-      if (current.length>=3) count++;
-      State.computed.bingeSessions = count;
+      State.computed.bingeSessions = State.computed._bingeSessions.length;
     }
   }
   const bingeSessions = State.computed.bingeSessions;
 
   // 4. Plugged-in score
   const pluggedInScore = State.computed.pluggedInScore;
+
+  // 5. Total listening hours
+  const totalMsMusic = State.music.reduce((s,r) => s + (r.ms_played||0), 0);
+  const totalMsPod   = State.podcasts.reduce((s,r) => s + (r.ms_played||0), 0);
+  const totalHours   = Math.round((totalMsMusic + totalMsPod) / 3600000);
 
   // Determine personality
   let label, desc, color;
@@ -1840,16 +1868,39 @@ function renderPersonality() {
   }
 
   while (stats.length < 3) stats.push({ label: 'Total plays analyzed', val: fmtNum(State.music.length + State.podcasts.length), note: '' });
+  // Always surface total hours as bonus stat
+  const hoursStatExists = stats.some(s => s.label.includes('hour'));
+  if (!hoursStatExists) stats.push({ label: 'Hours of audio consumed', val: fmtNum(totalHours) + 'h', note: 'across all history' });
+
+  // Build threshold explanations for each rule
+  const thresholds = [
+    { rule: 'Podcast completion', val: podCompletionRate !== null ? Math.round(podCompletionRate*100)+'%' : 'N/A', threshold: '< 40% → The Collector', met: podCompletionRate !== null && podCompletionRate < 0.4 },
+    { rule: 'Music concentration', val: top20Pct !== null ? Math.round(top20Pct*100)+'%' : 'N/A', threshold: '> 60% → The Comfort Seeker', met: top20Pct !== null && top20Pct > 0.6 },
+    { rule: 'Binge sessions', val: bingeSessions, threshold: '> 5 → The Deep Diver', met: bingeSessions > 5 },
+    { rule: 'Plugged-in score', val: pluggedInScore !== undefined ? Math.round(pluggedInScore) : 'N/A', threshold: '> 70 → The Tastemaker', met: pluggedInScore !== undefined && pluggedInScore > 70 },
+  ];
 
   el.innerHTML = `
     <div style="margin-bottom:40px">
       <div class="personality-label" style="color:${color}">${label}</div>
       <div class="personality-desc">${desc}</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;max-width:640px">
-        ${stats.map(s => `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px">
-          <div style="font-family:'Fraunces',serif;font-size:1.8rem;font-weight:700;color:${color};margin-bottom:4px">${s.val}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;max-width:700px">
+        ${stats.map((s,i) => `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px">
+          <div id="pstat-${i}" style="font-family:'Fraunces',serif;font-size:1.8rem;font-weight:700;color:${color};margin-bottom:4px">—</div>
           <div style="font-size:0.78rem;color:var(--text2);font-weight:600">${s.label}</div>
           ${s.note ? `<div style="font-size:0.7rem;color:var(--text3);margin-top:2px">${s.note}</div>` : ''}
+        </div>`).join('')}
+      </div>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:16px">
+      <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin-bottom:16px">How the label is assigned</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        ${thresholds.map(t => `<div style="display:flex;align-items:center;gap:12px">
+          <div style="width:8px;height:8px;border-radius:50%;background:${t.met ? 'var(--accent)' : 'var(--border)'};flex-shrink:0"></div>
+          <div style="font-size:0.82rem;color:${t.met ? 'var(--text)' : 'var(--text3)'}">
+            <strong>${t.rule}:</strong> ${t.val} <span style="color:var(--text3)">(${t.threshold})</span>
+            ${t.met ? '<span class="badge badge-green" style="margin-left:6px">triggered</span>' : ''}
+          </div>
         </div>`).join('')}
       </div>
     </div>
@@ -1858,11 +1909,27 @@ function renderPersonality() {
       <div style="display:flex;gap:32px;flex-wrap:wrap">
         <div><div style="font-size:1.2rem;font-weight:700;color:var(--text)">${fmtNum(State.music.length)}</div><div style="font-size:0.75rem;color:var(--text3)">Music plays</div></div>
         <div><div style="font-size:1.2rem;font-weight:700;color:var(--text)">${fmtNum(State.podcasts.length)}</div><div style="font-size:0.75rem;color:var(--text3)">Podcast plays</div></div>
+        <div><div style="font-size:1.2rem;font-weight:700;color:var(--text)">${fmtNum(totalHours)}h</div><div style="font-size:0.75rem;color:var(--text3)">Total listened</div></div>
         ${podCompletionRate !== null ? `<div><div style="font-size:1.2rem;font-weight:700;color:var(--text)">${Math.round(podCompletionRate*100)}%</div><div style="font-size:0.75rem;color:var(--text3)">Pod completion</div></div>` : ''}
         ${top20Pct !== null ? `<div><div style="font-size:1.2rem;font-weight:700;color:var(--text)">${Math.round(top20Pct*100)}%</div><div style="font-size:0.75rem;color:var(--text3)">Top-20 concentration</div></div>` : ''}
-        <div><div style="font-size:1.2rem;font-weight:700;color:var(--text)">${bingeSessions}</div><div style="font-size:0.75rem;color:var(--text3)">Binge sessions</div></div>
+        <div><div style="font-size:1.2rem;font-weight:700;color:var(--text)">${fmtNum(bingeSessions)}</div><div style="font-size:0.75rem;color:var(--text3)">Binge sessions</div></div>
       </div>
     </div>`;
+
+  // Animate stat values in
+  stats.forEach((s, i) => {
+    const el2 = document.getElementById('pstat-' + i);
+    if (!el2) return;
+    const numMatch = String(s.val).match(/^[\d,]+/);
+    if (numMatch) {
+      const num = parseInt(numMatch[0].replace(/,/g,''));
+      const suffix = String(s.val).slice(numMatch[0].length);
+      animateCount(el2, num, 900);
+      if (suffix) setTimeout(() => { el2.textContent = fmtNum(num) + suffix; }, 950);
+    } else {
+      el2.textContent = s.val;
+    }
+  });
 }
 
 /* ═══════════════════════════════════════════
