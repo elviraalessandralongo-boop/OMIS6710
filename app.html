@@ -1388,7 +1388,7 @@ function buildPluggedInForm() {
       <div style="font-size:1rem;font-weight:600;margin-bottom:8px">Connect Spotify</div>
       <div style="font-size:0.82rem;color:var(--text2);margin-bottom:20px;line-height:1.6">
         This tool compares your listening against top podcasts by category. It only reads public chart data — not your private account.
-        You need a Spotify Developer app Client ID. <a href="https://developer.spotify.com/dashboard" target="_blank" style="color:var(--accent)">Create one here</a> with redirect URI set to <code style="font-size:0.75rem;background:var(--bg3);padding:2px 6px;border-radius:4px">${window.location.href.split('?')[0]}</code>
+        You need a Spotify Developer app Client ID. <a href="https://developer.spotify.com/dashboard" target="_blank" style="color:var(--accent)">Create one here</a> and set the redirect URI to the local path of this file on your machine.
       </div>
       <div class="client-id-row">
         <input class="client-id-input" id="client-id-input" type="text" placeholder="Spotify Client ID" value="${escHtml(State.clientId)}">
