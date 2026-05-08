@@ -1694,15 +1694,15 @@ function renderForgotten() {
   content.innerHTML = `
     <div class="slider-row">
       <label>Dormant threshold:</label>
-      <input type="range" id="forgotten-slider" min="0" max="2" step="1" value="0">
-      <div class="slider-val" id="forgotten-val">90 days</div>
+      <input type="range" id="forgotten-slider" min="0" max="3" step="1" value="0">
+      <div class="slider-val" id="forgotten-val">3 months</div>
     </div>
     <div id="forgotten-list"></div>`;
   el.innerHTML = '';
   el.appendChild(content);
 
-  const thresholds = [90, 180, 365];
-  const labels = ['90 days', '180 days', '1 year'];
+  const thresholds = [90, 180, 270, 365];
+  const labels = ['3 months', '6 months', '9 months', '1 year'];
   const slider = document.getElementById('forgotten-slider');
   let sliderTimer = null;
   slider.addEventListener('input', () => {
