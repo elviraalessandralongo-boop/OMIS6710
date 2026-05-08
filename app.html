@@ -1157,7 +1157,7 @@ function renderHooked() {
     const firstPlay = ep.plays[0];
     results.push({ ...ep, autoFrac, completionRate, firstStart: firstPlay?.reason_start, firstTs: firstPlay?.ts });
   }
-  results.sort((a,b) => b.completionRate - a.completionRate);
+  results.sort((a,b) => new Date(b.firstTs) - new Date(a.firstTs));
 
   if (!results.length) {
     el.innerHTML = emptyState('🎣','No surprise hooks found','You tend to finish what you choose and skip what you don\'t — no accidental hooks this time.');
@@ -1192,16 +1192,16 @@ function renderHooked() {
   top.forEach((ep, i) => {
     const pct = Math.round(ep.completionRate * 100);
     const how = reasonLabel(ep.firstStart);
-    const year = ep.firstTs ? new Date(ep.firstTs).getFullYear() : null;
+    const firstDate = ep.firstTs ? new Date(ep.firstTs).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : null;
     html += `<li>
       <div class="result-num">${i+1}</div>
       <div class="result-body">
         <div class="result-title">${escHtml(ep.name)}</div>
-        <div class="result-sub">${escHtml(ep.show)}${year ? `<span style="color:var(--text3);font-weight:400"> · ${year}</span>` : ''}</div>
+        <div class="result-sub">${escHtml(ep.show)}</div>
         <div class="result-stats">
+          <span class="result-stat">First played: <strong>${firstDate || '—'}</strong></span>
           <span class="result-stat">How it started: <strong>${how}</strong></span>
           <span class="result-stat">Completed: <strong>~${pct}%</strong></span>
-          <span class="result-stat">Auto-started: <strong>${Math.round(ep.autoFrac*100)}%</strong></span>
         </div>
         <div class="bar-wrap" style="margin-top:8px;max-width:300px">
           <div class="bar-fill bar-green" data-width="${pct}%" style="width:0"></div>
