@@ -119,6 +119,8 @@ body {
   font-family: 'Space Grotesk', monospace;
 }
 .nav-item.active .nav-num { color: var(--accent); }
+.nav-item.locked { opacity: 0.4; cursor: default; }
+.nav-item.locked:hover { background: transparent; color: var(--text2); }
 
 .sidebar-upload {
   margin-top: auto;
@@ -145,7 +147,8 @@ body {
   font-size: 0.72rem;
   color: var(--text3);
   text-align: center;
-  line-height: 1.4;
+  line-height: 1.5;
+  white-space: pre-line;
 }
 
 /* ── MAIN CONTENT ── */
@@ -717,6 +720,12 @@ const State = {
    NAVIGATION
 ═══════════════════════════════════════════ */
 function navigate(pageId) {
+  // If no data loaded and not going to landing, bounce back with a toast
+  if (!State.music.length && !State.podcasts.length && pageId !== 'landing') {
+    showToast('Load a Spotify zip first to unlock the tools');
+    return;
+  }
+  document.getElementById('main').scrollTop = 0;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const page = document.getElementById('page-' + pageId);
@@ -729,6 +738,20 @@ function navigate(pageId) {
 document.querySelectorAll('.nav-item').forEach(item => {
   item.addEventListener('click', () => navigate(item.dataset.page));
 });
+
+function showToast(msg) {
+  let toast = document.getElementById('toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'toast';
+    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg4);border:1px solid var(--border);color:var(--text2);padding:10px 20px;border-radius:24px;font-size:0.82rem;font-weight:500;z-index:1000;opacity:0;transition:opacity 0.2s;pointer-events:none';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+}
 
 /* ═══════════════════════════════════════════
    FILE UPLOAD & PARSING
@@ -744,7 +767,10 @@ dropZone.addEventListener('drop', e => {
   const file = e.dataTransfer.files[0];
   if (file) handleFile(file);
 });
-fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+  e.target.value = ''; // reset so same file can be re-selected
+});
 
 function setProgress(pct, msg) {
   document.getElementById('landing-progress').style.display = 'block';
@@ -779,9 +805,14 @@ async function handleFile(file) {
     setProgress(80, 'Filtering and separating records…');
     processData(all);
     setProgress(100, 'Done!');
-    const totalRec = State.music.length + State.podcasts.length;
+    // Unlock nav items
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('locked'));
+    const allDates = [...State.music, ...State.podcasts].map(r => r.ts).sort();
+    const yearFrom = allDates[0]?.slice(0,4) || '';
+    const yearTo = allDates[allDates.length-1]?.slice(0,4) || '';
+    const dateRange = yearFrom && yearTo && yearFrom !== yearTo ? `${yearFrom}–${yearTo}` : yearFrom;
     document.getElementById('sidebar-status').textContent =
-      `${fmtNum(State.music.length)} music · ${fmtNum(State.podcasts.length)} podcast records`;
+      `${fmtNum(State.music.length)} music · ${fmtNum(State.podcasts.length)} podcast\n${dateRange}`;
     setTimeout(() => navigate('guilt-queue'), 400);
   } catch(err) {
     console.error(err);
@@ -827,8 +858,8 @@ function daysSince(ts) {
 function weekKey(ts) {
   const d = new Date(ts);
   const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(d.setDate(diff));
+  const diffDays = (day === 0) ? -6 : 1 - day;
+  const monday = new Date(d.getFullYear(), d.getMonth(), d.getDate() + diffDays);
   return monday.toISOString().slice(0,10);
 }
 function animateCount(el, target, duration=800, decimals=0) {
@@ -1500,9 +1531,11 @@ function renderPeakObsession() {
 }
 
 function buildSparkline(weekMap, width, height) {
-  const weeks = Object.keys(weekMap).sort();
+  let weeks = Object.keys(weekMap).sort();
   if (!weeks.length) return '';
-  const vals = weeks.map(w => weekMap[w]);
+  // Cap to last 104 weeks (2 years) so sparklines don't overflow
+  if (weeks.length > 104) weeks = weeks.slice(weeks.length - 104);
+  const vals = weeks.map(w => weekMap[w] || 0);
   const max = Math.max(...vals, 1);
   const bw = Math.max(2, Math.floor(width / weeks.length) - 1);
   const totalW = weeks.length * (bw + 1);
@@ -1514,7 +1547,7 @@ function buildSparkline(weekMap, width, height) {
     const alpha = 0.3 + (v / max) * 0.7;
     bars += `<rect x="${x}" y="${y}" width="${bw}" height="${h}" fill="rgba(29,185,84,${alpha.toFixed(2)})" rx="1"/>`;
   });
-  return `<svg class="sparkline" width="${totalW}" height="${height}" viewBox="0 0 ${totalW} ${height}">${bars}</svg>`;
+  return `<svg class="sparkline" width="${totalW}" height="${height}" viewBox="0 0 ${totalW} ${height}" style="max-width:100%">${bars}</svg>`;
 }
 
 /* ═══════════════════════════════════════════
@@ -1525,6 +1558,27 @@ function renderForgotten() {
   if (!State.music.length) {
     el.innerHTML = emptyState('🎵','No music data','Load a Spotify export with music listening history.');
     return;
+  }
+
+  // Pre-build track data once (expensive O(n) scan)
+  if (!State.computed._forgottenTrackData) {
+    const now = new Date();
+    const trackData = {};
+    for (const r of State.music) {
+      const track = r.master_metadata_track_name;
+      const artist = r.master_metadata_album_artist_name;
+      if (!track) continue;
+      const key = `${artist}||${track}`;
+      if (!trackData[key]) trackData[key] = { track, artist, plays: 0, lastPlayed: null };
+      trackData[key].plays++;
+      const d = new Date(r.ts);
+      if (!trackData[key].lastPlayed || d > trackData[key].lastPlayed) trackData[key].lastPlayed = d;
+    }
+    // Add daysSince while we have `now`
+    for (const t of Object.values(trackData)) {
+      t.daysSince = Math.floor((now - t.lastPlayed) / 86400000);
+    }
+    State.computed._forgottenTrackData = Object.values(trackData).filter(t => t.plays >= 10);
   }
 
   const content = document.createElement('div');
@@ -1550,29 +1604,10 @@ function renderForgotten() {
 
 function renderForgottenList(dormantDays) {
   const el = document.getElementById('forgotten-list');
-  const now = new Date();
 
-  const trackData = {};
-  for (const r of State.music) {
-    const track = r.master_metadata_track_name;
-    const artist = r.master_metadata_album_artist_name;
-    if (!track) continue;
-    const key = `${artist}||${track}`;
-    if (!trackData[key]) trackData[key] = { track, artist, plays: 0, lastPlayed: null };
-    trackData[key].plays++;
-    const d = new Date(r.ts);
-    if (!trackData[key].lastPlayed || d > trackData[key].lastPlayed) trackData[key].lastPlayed = d;
-  }
-
-  const results = Object.values(trackData).filter(t => {
-    if (t.plays < 10) return false;
-    const daysSinceLast = (now - t.lastPlayed) / 86400000;
-    return daysSinceLast > dormantDays;
-  }).map(t => ({
-    ...t,
-    daysSince: Math.floor((now - t.lastPlayed) / 86400000)
-  }));
-  results.sort((a,b) => b.plays - a.plays);
+  const results = State.computed._forgottenTrackData
+    .filter(t => t.daysSince > dormantDays)
+    .sort((a,b) => b.plays - a.plays);
 
   if (!results.length) {
     el.innerHTML = emptyState('💚','No forgotten songs','You\'re still playing everything in your history, or nothing has been quiet long enough yet.');
@@ -1657,19 +1692,39 @@ function renderBrain() {
     return html;
   }
 
-  // Compute insight sentence
-  function peakHour(grid) {
+  function fmtHour(h) {
+    if (h === 0) return 'midnight';
+    if (h === 12) return 'noon';
+    return h < 12 ? `${h}am` : `${h-12}pm`;
+  }
+
+  function peakHourAll(grid) {
     let best = -1, bestHr = 0;
     for (let hr = 0; hr < 24; hr++) {
-      const total = [0,1,2,3,4].reduce((s,d) => s+(grid[`${d}-${hr}`]||0),0); // weekdays
+      const total = [0,1,2,3,4,5,6].reduce((s,d) => s+(grid[`${d}-${hr}`]||0),0);
       if (total > best) { best = total; bestHr = hr; }
     }
     return bestHr;
   }
-  const mPeak = peakHour(mGrid);
-  const pPeak = peakHour(pGrid);
-  const mPeakStr = mPeak < 12 ? `${mPeak||12}am` : mPeak === 12 ? '12pm' : `${mPeak-12}pm`;
-  const pPeakStr = pPeak < 12 ? `${pPeak||12}am` : pPeak === 12 ? '12pm' : `${pPeak-12}pm`;
+  function peakDow(grid) {
+    const totals = [0,1,2,3,4,5,6].map(d =>
+      Array.from({length:24},(_,h) => grid[`${d}-${h}`]||0).reduce((a,b)=>a+b,0)
+    );
+    const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    return days[totals.indexOf(Math.max(...totals))];
+  }
+
+  const mPeak = peakHourAll(mGrid);
+  const pPeak = peakHourAll(pGrid);
+  const mPeakDay = State.music.length ? peakDow(mGrid) : '';
+  const pPeakDay = State.podcasts.length ? peakDow(pGrid) : '';
+
+  const insightParts = [];
+  if (State.music.length) insightParts.push(`Music peaks around <strong style="color:var(--accent2)">${fmtHour(mPeak)}</strong> on <strong style="color:var(--accent2)">${mPeakDay}s</strong>.`);
+  if (State.podcasts.length) insightParts.push(`Podcast listening peaks around <strong style="color:var(--blue)">${fmtHour(pPeak)}</strong> on <strong style="color:var(--blue)">${pPeakDay}s</strong>.`);
+  if (State.music.length && State.podcasts.length && Math.abs(mPeak - pPeak) >= 3) {
+    insightParts.push(`You switch modes across the day.`);
+  }
 
   el.innerHTML = `
     <div class="toggle-row">
@@ -1680,11 +1735,7 @@ function renderBrain() {
     <div id="brain-pod-map" style="display:none">${State.podcasts.length ? renderHeatmap(pGrid, pMax, 'blue') : emptyState('🎙️','No podcast data','')}</div>
     <div style="margin-top:20px;padding:16px 20px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm)">
       <div style="font-size:0.78rem;color:var(--text3);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em">Pattern Insight</div>
-      <div style="font-size:0.92rem;color:var(--text2)">
-        ${State.music.length ? `Your music peaks around <strong style="color:var(--accent2)">${mPeakStr}</strong> on weekdays.` : ''}
-        ${State.podcasts.length ? ` Podcast listening peaks around <strong style="color:var(--blue)">${pPeakStr}</strong>.` : ''}
-        ${(mPeak !== pPeak && State.music.length && State.podcasts.length) ? ` You switch modes across the day.` : ''}
-      </div>
+      <div style="font-size:0.92rem;color:var(--text2);line-height:1.6">${insightParts.join(' ')}</div>
     </div>`;
 }
 
@@ -1826,13 +1877,20 @@ function escHtml(str) {
    OAUTH CALLBACK ON LOAD
 ═══════════════════════════════════════════ */
 window.addEventListener('DOMContentLoaded', () => {
+  // Lock nav items until data is loaded
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.add('locked'));
+
   const params = new URLSearchParams(window.location.search);
   const code = params.get('code');
   const state = params.get('state');
   const savedState = sessionStorage.getItem('pkce_state');
   if (code && state && savedState && state === savedState) {
-    // Navigate to plugged-in to handle the callback
-    navigate('plugged-in');
+    // OAuth callback — navigate directly bypassing the data guard
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    const page = document.getElementById('page-plugged-in');
+    if (page) page.classList.add('active');
+    renderPluggedIn();
   }
 });
 </script>
