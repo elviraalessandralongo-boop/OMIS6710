@@ -1,0 +1,1840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Honest Listener</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d0d0f;
+  --bg2: #141417;
+  --bg3: #1c1c21;
+  --bg4: #242429;
+  --border: #2a2a32;
+  --text: #e8e8f0;
+  --text2: #9090a8;
+  --text3: #5a5a70;
+  --accent: #1db954;
+  --accent2: #1ed760;
+  --accent-dim: rgba(29,185,84,0.15);
+  --accent-dim2: rgba(29,185,84,0.08);
+  --red: #e05c5c;
+  --red-dim: rgba(224,92,92,0.15);
+  --amber: #e0a050;
+  --amber-dim: rgba(224,160,80,0.15);
+  --blue: #5c8fe0;
+  --blue-dim: rgba(92,143,224,0.15);
+  --purple: #9c5ce0;
+  --purple-dim: rgba(156,92,224,0.15);
+  --sidebar: 260px;
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: 'Space Grotesk', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+/* ── SIDEBAR ── */
+#sidebar {
+  width: var(--sidebar);
+  min-width: var(--sidebar);
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  z-index: 10;
+}
+.sidebar-logo {
+  padding: 28px 24px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-logo h1 {
+  font-family: 'Fraunces', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+.sidebar-logo span {
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-weight: 300;
+  font-size: 0.7rem;
+  color: var(--text3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.sidebar-section {
+  padding: 16px 12px 8px;
+}
+.sidebar-section-label {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text3);
+  padding: 0 12px;
+  margin-bottom: 4px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: var(--text2);
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 2px;
+  user-select: none;
+}
+.nav-item:hover { background: var(--bg3); color: var(--text); }
+.nav-item.active { background: var(--accent-dim); color: var(--accent2); }
+.nav-item .nav-icon { font-size: 1rem; width: 20px; text-align: center; }
+.nav-item .nav-num {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text3);
+  margin-left: auto;
+  font-family: 'Space Grotesk', monospace;
+}
+.nav-item.active .nav-num { color: var(--accent); }
+
+.sidebar-upload {
+  margin-top: auto;
+  padding: 16px;
+  border-top: 1px solid var(--border);
+}
+.upload-btn {
+  width: 100%;
+  padding: 10px;
+  background: var(--accent-dim);
+  border: 1px solid rgba(29,185,84,0.3);
+  border-radius: var(--radius-sm);
+  color: var(--accent2);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+.upload-btn:hover { background: var(--accent); color: #000; }
+.upload-status {
+  margin-top: 8px;
+  font-size: 0.72rem;
+  color: var(--text3);
+  text-align: center;
+  line-height: 1.4;
+}
+
+/* ── MAIN CONTENT ── */
+#main {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.page {
+  display: none;
+  min-height: 100%;
+  padding: 48px 52px;
+  max-width: 1100px;
+  animation: fadeIn 0.3s ease;
+}
+.page.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── LANDING ── */
+#page-landing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 80px 52px;
+  min-height: 100vh;
+}
+#page-landing.active { display: flex; }
+.landing-title {
+  font-family: 'Fraunces', serif;
+  font-size: 4rem;
+  font-weight: 700;
+  line-height: 1.05;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, var(--text) 0%, var(--accent2) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.landing-sub {
+  font-size: 1.1rem;
+  color: var(--text2);
+  max-width: 520px;
+  line-height: 1.6;
+  margin-bottom: 48px;
+}
+.drop-zone {
+  width: 420px;
+  max-width: 100%;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 48px 32px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--bg2);
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-dim2);
+}
+.drop-icon { font-size: 3rem; margin-bottom: 16px; }
+.drop-label { font-size: 1rem; color: var(--text2); margin-bottom: 8px; }
+.drop-hint { font-size: 0.8rem; color: var(--text3); }
+#file-input { display: none; }
+.landing-progress {
+  margin-top: 32px;
+  width: 420px;
+  max-width: 100%;
+}
+.progress-bar-wrap {
+  background: var(--bg3);
+  border-radius: 4px;
+  height: 4px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  width: 0%;
+}
+.progress-text { font-size: 0.82rem; color: var(--text2); }
+.landing-error {
+  margin-top: 20px;
+  padding: 12px 20px;
+  background: var(--red-dim);
+  border: 1px solid var(--red);
+  border-radius: var(--radius-sm);
+  color: var(--red);
+  font-size: 0.85rem;
+  max-width: 420px;
+}
+
+/* ── PAGE HEADERS ── */
+.page-header { margin-bottom: 36px; }
+.page-header-tag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.page-title {
+  font-family: 'Fraunces', serif;
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1.1;
+  margin-bottom: 10px;
+}
+.page-tagline {
+  font-size: 0.95rem;
+  color: var(--text2);
+  font-style: italic;
+  font-family: 'Fraunces', serif;
+}
+
+/* ── CARDS ── */
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 16px;
+}
+.card-sm {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px 20px;
+  margin-bottom: 10px;
+}
+.card-rank {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.card-title { font-size: 1rem; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.card-sub { font-size: 0.82rem; color: var(--text2); }
+.card-meta { font-size: 0.78rem; color: var(--text3); margin-top: 8px; }
+.badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.badge-red { background: var(--red-dim); color: var(--red); }
+.badge-amber { background: var(--amber-dim); color: var(--amber); }
+.badge-green { background: var(--accent-dim); color: var(--accent2); }
+.badge-blue { background: var(--blue-dim); color: var(--blue); }
+.badge-purple { background: var(--purple-dim); color: var(--purple); }
+
+/* ── EMPTY STATE ── */
+.empty-state {
+  text-align: center;
+  padding: 80px 40px;
+  color: var(--text3);
+}
+.empty-icon { font-size: 3rem; margin-bottom: 16px; }
+.empty-title { font-size: 1.1rem; font-weight: 600; color: var(--text2); margin-bottom: 8px; }
+.empty-desc { font-size: 0.88rem; line-height: 1.6; max-width: 400px; margin: 0 auto; }
+
+/* ── STAT ROW ── */
+.stat-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+}
+.stat-box {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  flex: 1;
+  min-width: 140px;
+}
+.stat-box-val {
+  font-family: 'Fraunces', serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent2);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.stat-box-label { font-size: 0.75rem; color: var(--text3); font-weight: 500; }
+
+/* ── PROGRESS BAR ── */
+.bar-wrap { background: var(--bg3); border-radius: 4px; height: 6px; overflow: hidden; margin-top: 8px; }
+.bar-fill { height: 100%; border-radius: 4px; transition: width 0.8s cubic-bezier(0.4,0,0.2,1); width: 0; }
+.bar-green { background: var(--accent); }
+.bar-red { background: var(--red); }
+.bar-amber { background: var(--amber); }
+.bar-blue { background: var(--blue); }
+
+/* ── HEATMAP ── */
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: 48px repeat(24, 1fr);
+  gap: 3px;
+  font-size: 0.65rem;
+}
+.heatmap-cell {
+  height: 28px;
+  border-radius: 3px;
+  background: var(--bg3);
+  transition: background 0.3s;
+  cursor: default;
+  position: relative;
+}
+.heatmap-cell:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: 110%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg4);
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 100;
+  color: var(--text);
+}
+.heatmap-label { display: flex; align-items: center; color: var(--text3); }
+
+/* ── SPARKLINE ── */
+.sparkline { display: inline-block; vertical-align: middle; }
+
+/* ── SLIDER ── */
+.slider-row { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+.slider-row label { font-size: 0.82rem; color: var(--text2); white-space: nowrap; }
+.slider-row input[type=range] {
+  -webkit-appearance: none;
+  flex: 1;
+  height: 4px;
+  background: var(--bg4);
+  border-radius: 2px;
+  outline: none;
+}
+.slider-row input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+.slider-val {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent2);
+  min-width: 60px;
+  text-align: right;
+}
+
+/* ── TOGGLE ── */
+.toggle-row { display: flex; gap: 4px; margin-bottom: 24px; }
+.toggle-btn {
+  padding: 7px 18px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text2);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.toggle-btn.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent2);
+}
+
+/* ── PERSONALITY ── */
+.personality-label {
+  font-family: 'Fraunces', serif;
+  font-size: 3.5rem;
+  font-weight: 700;
+  color: var(--accent2);
+  margin-bottom: 8px;
+  line-height: 1;
+}
+.personality-desc {
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--text2);
+  max-width: 640px;
+  margin-bottom: 32px;
+}
+
+/* ── METER ── */
+.meter-row { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+.meter-label { font-size: 0.82rem; font-weight: 600; color: var(--text2); min-width: 140px; }
+.meter-bar-wrap { flex: 1; background: var(--bg3); border-radius: 4px; height: 10px; overflow: hidden; }
+.meter-bar-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.8s cubic-bezier(0.4,0,0.2,1); width: 0; }
+.meter-score { font-size: 0.9rem; font-weight: 700; color: var(--accent2); min-width: 40px; text-align: right; }
+
+/* ── OAUTH ── */
+.oauth-box {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 36px;
+  text-align: center;
+  max-width: 480px;
+  margin: 0 auto 32px;
+}
+.oauth-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 28px;
+  background: var(--accent);
+  border: none;
+  border-radius: 24px;
+  color: #000;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 20px;
+}
+.oauth-btn:hover { background: var(--accent2); transform: translateY(-1px); }
+.client-id-row { display: flex; gap: 8px; margin-bottom: 16px; }
+.client-id-input {
+  flex: 1;
+  padding: 10px 14px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.client-id-input:focus { border-color: var(--accent); }
+
+/* ── LIST ── */
+.result-list { list-style: none; }
+.result-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.result-list li:last-child { border-bottom: none; }
+.result-num {
+  font-family: 'Fraunces', serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text3);
+  min-width: 32px;
+  padding-top: 2px;
+}
+.result-body { flex: 1; }
+.result-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 2px; }
+.result-sub { font-size: 0.8rem; color: var(--text2); margin-bottom: 6px; }
+.result-stats { display: flex; gap: 20px; flex-wrap: wrap; }
+.result-stat { font-size: 0.78rem; color: var(--text3); }
+.result-stat strong { color: var(--text2); }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div class="sidebar-logo">
+    <h1>The Honest Listener</h1>
+    <span>Spotify Analytics</span>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Podcasts</div>
+    <div class="nav-item" data-page="guilt-queue">
+      <span class="nav-icon">😬</span> Guilt Queue
+      <span class="nav-num">01</span>
+    </div>
+    <div class="nav-item" data-page="hooked">
+      <span class="nav-icon">🎣</span> Accidentally Hooked
+      <span class="nav-num">02</span>
+    </div>
+    <div class="nav-item" data-page="binge">
+      <span class="nav-icon">📚</span> Binge Sessions
+      <span class="nav-num">03</span>
+    </div>
+    <div class="nav-item" data-page="plugged-in">
+      <span class="nav-icon">📡</span> How Plugged In
+      <span class="nav-num">04</span>
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Music</div>
+    <div class="nav-item" data-page="one-hit">
+      <span class="nav-icon">🎯</span> One Hit Wonder
+      <span class="nav-num">05</span>
+    </div>
+    <div class="nav-item" data-page="peak-obsession">
+      <span class="nav-icon">📈</span> Peak Obsession
+      <span class="nav-num">06</span>
+    </div>
+    <div class="nav-item" data-page="forgotten">
+      <span class="nav-icon">🗂️</span> Forgotten Plays
+      <span class="nav-num">07</span>
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Synthesis</div>
+    <div class="nav-item" data-page="brain">
+      <span class="nav-icon">🧠</span> Music vs Podcast Brain
+      <span class="nav-num">08</span>
+    </div>
+    <div class="nav-item" data-page="personality">
+      <span class="nav-icon">🪞</span> Your Personality
+      <span class="nav-num">09</span>
+    </div>
+  </div>
+
+  <div class="sidebar-upload">
+    <button class="upload-btn" onclick="document.getElementById('file-input').click()">
+      ↑ Load New File
+    </button>
+    <div class="upload-status" id="sidebar-status">No file loaded</div>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main id="main">
+
+  <!-- LANDING -->
+  <div id="page-landing" class="page active">
+    <div class="landing-title">The Honest<br>Listener</div>
+    <div class="landing-sub">Upload your Spotify Extended Streaming History zip. Everything stays on your machine — no data leaves your browser.</div>
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <div class="drop-icon">🎧</div>
+      <div class="drop-label">Drop your Spotify zip here</div>
+      <div class="drop-hint">or click to browse · Works with any valid Spotify export</div>
+    </div>
+    <div class="landing-progress" id="landing-progress" style="display:none">
+      <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill"></div></div>
+      <div class="progress-text" id="progress-text">Parsing files…</div>
+    </div>
+    <div class="landing-error" id="landing-error" style="display:none"></div>
+    <input type="file" id="file-input" accept=".zip">
+  </div>
+
+  <!-- TOOL 1: GUILT QUEUE -->
+  <div id="page-guilt-queue" class="page">
+    <div class="page-header">
+      <div class="page-header-tag">Podcast · Tool 01</div>
+      <div class="page-title">Guilt Queue</div>
+      <div class="page-tagline">"You chose this. Then you abandoned it."</div>
+    </div>
+    <div id="guilt-queue-content"></div>
+  </div>
+
+  <!-- TOOL 2: ACCIDENTALLY HOOKED -->
+  <div id="page-hooked" class="page">
+    <div class="page-header">
+      <div class="page-header-tag">Podcast · Tool 02</div>
+      <div class="page-title">Accidentally Hooked</div>
+      <div class="page-tagline">"You didn't choose this. You just couldn't stop."</div>
+    </div>
+    <div id="hooked-content"></div>
+  </div>
+
+  <!-- TOOL 3: BINGE SESSIONS -->
+  <div id="page-binge" class="page">
+    <div class="page-header">
+      <div class="page-header-tag">Podcast · Tool 03</div>
+      <div class="page-title">Binge Sessions</div>
+      <div class="page-tagline">"Three episodes in. Not stopping now."</div>
+    </div>
+    <div id="binge-content"></div>
+  </div>
+
+  <!-- TOOL 4: HOW PLUGGED IN -->
+  <div id="page-plugged-in" class="page">
+    <div class="page-header">
+      <div class="page-header-tag">Podcast · Tool 04</div>
+      <div class="page-title">How Plugged In Are You?</div>
+      <div class="page-tagline">"Do you listen to what matters — or just what's on?"</div>
+    </div>
+    <div id="plugged-in-content"></div>
+  </div>
+
+  <!-- TOOL 5: ONE HIT WONDER -->
+  <div id="page-one-hit" class="page">
+    <div class="page-header">
+      <div class="page-header-tag">Music · Tool 05</div>
+      <div class="page-title">One Hit Wonder Relationship</div>
+      <div class="page-tagline">"Not really a fan. Just really like that one song."</div>
+    </div>
+    <div id="one-hit-content"></div>
+  </div>
+
+  <!-- TOOL 6: PEAK OBSESSION -->
+  <div id="page-peak-obsession" class="page">
+    <div class="page-header">
+      <div class="page-header-tag">Music · Tool 06</div>
+      <div class="page-title">Peak Obsession</div>
+      <div class="page-tagline">"The songs you burned through — and moved on from."</div>
+    </div>
+    <div id="peak-obsession-content"></div>
+  </div>
+
+  <!-- TOOL 7: FORGOTTEN PLAYS -->
+  <div id="page-forgotten" class="page">
+    <div class="page-header">
+      <div class="page-header-tag">Music · Tool 07</div>
+      <div class="page-title">Forgotten Plays</div>
+      <div class="page-tagline">"You used to love this. What happened?"</div>
+    </div>
+    <div id="forgotten-content"></div>
+  </div>
+
+  <!-- TOOL 8: BRAIN -->
+  <div id="page-brain" class="page">
+    <div class="page-header">
+      <div class="page-header-tag">Synthesis · Tool 08</div>
+      <div class="page-title">Music vs Podcast Brain</div>
+      <div class="page-tagline">"When do you want to feel — and when do you want to think?"</div>
+    </div>
+    <div id="brain-content"></div>
+  </div>
+
+  <!-- TOOL 9: PERSONALITY -->
+  <div id="page-personality" class="page">
+    <div class="page-header">
+      <div class="page-header-tag">Synthesis · Tool 09</div>
+      <div class="page-title">Your Listener Personality</div>
+      <div class="page-tagline">"This is what your data says about you."</div>
+    </div>
+    <div id="personality-content"></div>
+  </div>
+
+</main>
+
+<script>
+/* ═══════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════ */
+const State = {
+  music: [],
+  podcasts: [],
+  computed: {},
+  spotifyToken: null,
+  clientId: localStorage.getItem('spotify_client_id') || '',
+};
+
+/* ═══════════════════════════════════════════
+   NAVIGATION
+═══════════════════════════════════════════ */
+function navigate(pageId) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const page = document.getElementById('page-' + pageId);
+  if (page) page.classList.add('active');
+  const nav = document.querySelector('[data-page="' + pageId + '"]');
+  if (nav) nav.classList.add('active');
+  if (State.music.length || State.podcasts.length) renderTool(pageId);
+}
+
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => navigate(item.dataset.page));
+});
+
+/* ═══════════════════════════════════════════
+   FILE UPLOAD & PARSING
+═══════════════════════════════════════════ */
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile(file);
+});
+fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+function setProgress(pct, msg) {
+  document.getElementById('landing-progress').style.display = 'block';
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-text').textContent = msg;
+}
+function showError(msg) {
+  const el = document.getElementById('landing-error');
+  el.style.display = 'block';
+  el.textContent = msg;
+}
+
+async function handleFile(file) {
+  document.getElementById('landing-error').style.display = 'none';
+  setProgress(5, 'Reading zip…');
+  try {
+    const zip = await JSZip.loadAsync(file);
+    const audioFiles = Object.keys(zip.files).filter(n =>
+      /Streaming_History_Audio_.*\.json$/i.test(n) && !zip.files[n].dir
+    );
+    if (!audioFiles.length) {
+      showError('No Streaming_History_Audio_*.json files found in this zip. Please use a Spotify Extended Streaming History export.');
+      return;
+    }
+    let all = [];
+    for (let i = 0; i < audioFiles.length; i++) {
+      setProgress(5 + (i / audioFiles.length) * 70, `Parsing ${audioFiles[i].split('/').pop()}…`);
+      const raw = await zip.files[audioFiles[i]].async('string');
+      const parsed = JSON.parse(raw);
+      all = all.concat(parsed);
+    }
+    setProgress(80, 'Filtering and separating records…');
+    processData(all);
+    setProgress(100, 'Done!');
+    const totalRec = State.music.length + State.podcasts.length;
+    document.getElementById('sidebar-status').textContent =
+      `${fmtNum(State.music.length)} music · ${fmtNum(State.podcasts.length)} podcast records`;
+    setTimeout(() => navigate('guilt-queue'), 400);
+  } catch(err) {
+    console.error(err);
+    showError('Failed to parse zip: ' + err.message + '. Make sure this is a valid Spotify Extended Streaming History zip.');
+  }
+}
+
+function processData(raw) {
+  const MIN_MS = 10000;
+  State.music = [];
+  State.podcasts = [];
+  for (const r of raw) {
+    if ((r.ms_played || 0) < MIN_MS) continue;
+    if (r.master_metadata_track_name && r.master_metadata_album_artist_name) {
+      State.music.push(r);
+    } else if (r.episode_name && r.episode_show_name) {
+      State.podcasts.push(r);
+    }
+  }
+  State.music.sort((a,b) => new Date(a.ts) - new Date(b.ts));
+  State.podcasts.sort((a,b) => new Date(a.ts) - new Date(b.ts));
+  State.computed = {};
+}
+
+/* ═══════════════════════════════════════════
+   UTILITIES
+═══════════════════════════════════════════ */
+function fmtNum(n) { return n.toLocaleString(); }
+function fmtHours(ms) {
+  const h = ms / 3600000;
+  if (h >= 1) return h.toFixed(1) + 'h';
+  return Math.round(ms / 60000) + 'm';
+}
+function fmtMs(ms) {
+  const m = Math.floor(ms / 60000);
+  const h = Math.floor(m / 60);
+  if (h > 0) return `${h}h ${m % 60}m`;
+  return `${m}m`;
+}
+function daysSince(ts) {
+  return Math.floor((Date.now() - new Date(ts)) / 86400000);
+}
+function weekKey(ts) {
+  const d = new Date(ts);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(d.setDate(diff));
+  return monday.toISOString().slice(0,10);
+}
+function animateCount(el, target, duration=800, decimals=0) {
+  const start = performance.now();
+  const step = t => {
+    const elapsed = t - start;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const val = target * eased;
+    el.textContent = decimals ? val.toFixed(decimals) : Math.round(val).toLocaleString();
+    if (progress < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+function animateBars(container) {
+  setTimeout(() => {
+    container.querySelectorAll('[data-width]').forEach(el => {
+      el.style.width = el.dataset.width;
+    });
+  }, 100);
+}
+
+function emptyState(icon, title, desc) {
+  return `<div class="empty-state">
+    <div class="empty-icon">${icon}</div>
+    <div class="empty-title">${title}</div>
+    <div class="empty-desc">${desc}</div>
+  </div>`;
+}
+
+/* ═══════════════════════════════════════════
+   ROUTER
+═══════════════════════════════════════════ */
+function renderTool(pageId) {
+  const fn = {
+    'guilt-queue':    renderGuiltQueue,
+    'hooked':         renderHooked,
+    'binge':          renderBinge,
+    'plugged-in':     renderPluggedIn,
+    'one-hit':        renderOneHit,
+    'peak-obsession': renderPeakObsession,
+    'forgotten':      renderForgotten,
+    'brain':          renderBrain,
+    'personality':    renderPersonality,
+  }[pageId];
+  if (fn) fn();
+}
+
+/* ═══════════════════════════════════════════
+   SHARED PODCAST HELPERS
+═══════════════════════════════════════════ */
+function percentile(arr, p) {
+  const sorted = [...arr].sort((a,b) => a-b);
+  return sorted[Math.floor(sorted.length * p / 100)] || 0;
+}
+
+// Build show-typical episode length (90th pct ms_played per show)
+// and group podcasts by episode key
+function buildPodcastData() {
+  if (State.computed._podData) return State.computed._podData;
+  const showMsVals = {};
+  for (const r of State.podcasts) {
+    const show = r.episode_show_name;
+    if (!showMsVals[show]) showMsVals[show] = [];
+    showMsVals[show].push(r.ms_played || 0);
+  }
+  const showTypical = {};
+  for (const [show, vals] of Object.entries(showMsVals)) {
+    showTypical[show] = percentile(vals, 90);
+  }
+
+  const episodes = {};
+  for (const r of State.podcasts) {
+    const key = r.spotify_episode_uri || (r.episode_show_name + '||' + r.episode_name);
+    if (!episodes[key]) episodes[key] = { name: r.episode_name, show: r.episode_show_name, plays: [] };
+    episodes[key].plays.push(r);
+  }
+
+  State.computed._podData = { showTypical, episodes };
+  return State.computed._podData;
+}
+
+function episodeCompletion(ep, showTypical) {
+  const typical = showTypical[ep.show] || 0;
+  if (typical < 60000) return null; // can't measure very short content
+  const totalMs = ep.plays.reduce((s,r) => s + (r.ms_played||0), 0);
+  return Math.min(totalMs / typical, 1);
+}
+
+/* ═══════════════════════════════════════════
+   TOOL 1: GUILT QUEUE
+═══════════════════════════════════════════ */
+function renderGuiltQueue() {
+  const el = document.getElementById('guilt-queue-content');
+  if (!State.podcasts.length) {
+    el.innerHTML = emptyState('🎙️','No podcast data found','This tool requires podcast records in your streaming history. Load a Spotify export that includes podcast listening.');
+    return;
+  }
+
+  // Intentional = searchquery OR clickrow (explicit user selection)
+  const INTENTIONAL = new Set(['searchquery','clickrow','playbtn']);
+  const { showTypical, episodes } = buildPodcastData();
+
+  const results = [];
+  for (const [key, ep] of Object.entries(episodes)) {
+    const intentPlays = ep.plays.filter(r => INTENTIONAL.has(r.reason_start));
+    if (!intentPlays.length) continue;
+    const completionRate = episodeCompletion(ep, showTypical);
+    if (completionRate === null || completionRate >= 0.4) continue;
+    const intentScore = intentPlays.length / ep.plays.length;
+    const score = intentScore * (1 - completionRate);
+    results.push({ ...ep, intentPlays: intentPlays.length, totalPlays: ep.plays.length, completionRate, score });
+  }
+  results.sort((a,b) => b.score - a.score);
+
+  if (!results.length) {
+    el.innerHTML = emptyState('✅','No guilt here!','You actually finish what you intentionally start. Either that, or you\'re careful about what you begin.');
+    return;
+  }
+
+  const top = results.slice(0, 20);
+  let html = `
+    <div class="stat-row">
+      <div class="stat-box"><div class="stat-box-val" id="gq-count">0</div><div class="stat-box-label">Abandoned Episodes</div></div>
+      <div class="stat-box"><div class="stat-box-val" id="gq-shows">0</div><div class="stat-box-label">Shows Affected</div></div>
+      <div class="stat-box"><div class="stat-box-val" id="gq-avg">0%</div><div class="stat-box-label">Avg Completion</div></div>
+    </div>
+    <div style="margin-bottom:16px;font-size:0.78rem;color:var(--text3);font-style:italic;">
+      "Intentional" = episodes you specifically clicked on (not autoplay). Ranked by intent × incompletion.
+    </div>
+    <ul class="result-list">`;
+
+  top.forEach((ep, i) => {
+    const pct = Math.round(ep.completionRate * 100);
+    const badge = i < 3 ? '<span class="badge badge-red">No excuse</span>' : '';
+    html += `<li>
+      <div class="result-num">${i+1}</div>
+      <div class="result-body">
+        <div class="result-title">${escHtml(ep.name)} ${badge}</div>
+        <div class="result-sub">${escHtml(ep.show)}</div>
+        <div class="result-stats">
+          <span class="result-stat">Started <strong>${ep.totalPlays}×</strong></span>
+          <span class="result-stat">Intentional starts: <strong>${ep.intentPlays}</strong></span>
+          <span class="result-stat">Completed: <strong>~${pct}%</strong></span>
+        </div>
+        <div class="bar-wrap" style="margin-top:8px;max-width:300px">
+          <div class="bar-fill bar-red" data-width="${pct}%" style="width:0"></div>
+        </div>
+      </div>
+    </li>`;
+  });
+  html += '</ul>';
+  el.innerHTML = html;
+
+  const shows = new Set(results.map(r => r.show)).size;
+  const avgComp = results.reduce((s,r) => s + r.completionRate, 0) / results.length;
+  animateCount(document.getElementById('gq-count'), results.length);
+  animateCount(document.getElementById('gq-shows'), shows);
+  document.getElementById('gq-avg').textContent = Math.round(avgComp * 100) + '%';
+  animateBars(el);
+}
+
+/* ═══════════════════════════════════════════
+   TOOL 2: ACCIDENTALLY HOOKED
+═══════════════════════════════════════════ */
+function renderHooked() {
+  const el = document.getElementById('hooked-content');
+  if (!State.podcasts.length) {
+    el.innerHTML = emptyState('🎙️','No podcast data found','This tool needs podcast records. Load a Spotify export that includes podcast listening.');
+    return;
+  }
+
+  const INTENTIONAL = new Set(['searchquery','clickrow','playbtn']);
+  const { showTypical, episodes } = buildPodcastData();
+
+  const results = [];
+  for (const [key, ep] of Object.entries(episodes)) {
+    const autoPlays = ep.plays.filter(r => !INTENTIONAL.has(r.reason_start));
+    if (!autoPlays.length) continue;
+    const autoFrac = autoPlays.length / ep.plays.length;
+    if (autoFrac < 0.5) continue;
+    const completionRate = episodeCompletion(ep, showTypical);
+    if (completionRate === null || completionRate < 0.8) continue;
+    const firstPlay = ep.plays[0];
+    results.push({ ...ep, autoFrac, completionRate, firstStart: firstPlay?.reason_start });
+  }
+  results.sort((a,b) => b.completionRate - a.completionRate);
+
+  if (!results.length) {
+    el.innerHTML = emptyState('🎣','No surprise hooks found','You tend to finish what you choose and skip what you don\'t — no accidental hooks this time.');
+    return;
+  }
+
+  const top = results.slice(0, 20);
+  let html = `
+    <div class="stat-row">
+      <div class="stat-box"><div class="stat-box-val" id="hk-count">0</div><div class="stat-box-label">Surprise Finishes</div></div>
+      <div class="stat-box"><div class="stat-box-val" id="hk-shows">0</div><div class="stat-box-label">Shows</div></div>
+      <div class="stat-box"><div class="stat-box-val" id="hk-avg">0%</div><div class="stat-box-label">Avg Completion</div></div>
+    </div>
+    <ul class="result-list">`;
+
+  top.forEach((ep, i) => {
+    const pct = Math.round(ep.completionRate * 100);
+    const how = ep.firstStart || 'autoplay';
+    html += `<li>
+      <div class="result-num">${i+1}</div>
+      <div class="result-body">
+        <div class="result-title">${escHtml(ep.name)}</div>
+        <div class="result-sub">${escHtml(ep.show)}</div>
+        <div class="result-stats">
+          <span class="result-stat">How it started: <strong>${how}</strong></span>
+          <span class="result-stat">Completed: <strong>~${pct}%</strong></span>
+          <span class="result-stat">Auto-started: <strong>${Math.round(ep.autoFrac*100)}%</strong></span>
+        </div>
+        <div class="bar-wrap" style="margin-top:8px;max-width:300px">
+          <div class="bar-fill bar-green" data-width="${pct}%" style="width:0"></div>
+        </div>
+      </div>
+    </li>`;
+  });
+  html += '</ul>';
+  el.innerHTML = html;
+
+  const shows = new Set(results.map(r => r.show)).size;
+  const avgComp = results.reduce((s,r) => s + r.completionRate, 0) / results.length;
+  animateCount(document.getElementById('hk-count'), results.length);
+  animateCount(document.getElementById('hk-shows'), shows);
+  document.getElementById('hk-avg').textContent = Math.round(avgComp * 100) + '%';
+  animateBars(el);
+}
+
+/* ═══════════════════════════════════════════
+   TOOL 3: BINGE SESSIONS
+═══════════════════════════════════════════ */
+function renderBinge() {
+  const el = document.getElementById('binge-content');
+  if (!State.podcasts.length) {
+    el.innerHTML = emptyState('🎙️','No podcast data','This tool needs podcast records.');
+    return;
+  }
+
+  // Sort by timestamp
+  const sorted = [...State.podcasts].sort((a,b) => new Date(a.ts) - new Date(b.ts));
+  const GAP_MS = 30 * 60 * 1000; // 30 min
+
+  const sessions = [];
+  let current = [sorted[0]];
+  for (let i = 1; i < sorted.length; i++) {
+    const gap = new Date(sorted[i].ts) - new Date(sorted[i-1].ts);
+    if (gap <= GAP_MS) {
+      current.push(sorted[i]);
+    } else {
+      if (current.length >= 3) sessions.push(current);
+      current = [sorted[i]];
+    }
+  }
+  if (current.length >= 3) sessions.push(current);
+
+  if (!sessions.length) {
+    el.innerHTML = emptyState('📚','No binge sessions found','You\'ve never played 3+ podcast episodes back-to-back within 30 minutes of each other. Impressive restraint.');
+    return;
+  }
+
+  sessions.sort((a,b) => {
+    const msA = a.reduce((s,r) => s + (r.ms_played||0), 0);
+    const msB = b.reduce((s,r) => s + (r.ms_played||0), 0);
+    return msB - msA;
+  });
+
+  let html = `
+    <div class="stat-row">
+      <div class="stat-box"><div class="stat-box-val" id="bi-count">0</div><div class="stat-box-label">Binge Sessions</div></div>
+      <div class="stat-box"><div class="stat-box-val" id="bi-most">0</div><div class="stat-box-label">Most Episodes in One Go</div></div>
+      <div class="stat-box"><div class="stat-box-val" id="bi-longest">—</div><div class="stat-box-label">Longest Session</div></div>
+    </div>`;
+
+  const top = sessions.slice(0,15);
+  top.forEach((session, i) => {
+    const totalMs = session.reduce((s,r) => s + (r.ms_played||0), 0);
+    const date = new Date(session[0].ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    const shows = [...new Set(session.map(r => r.episode_show_name))];
+    const mainShow = shows[0];
+    const multiShow = shows.length > 1 ? ` + ${shows.length-1} other${shows.length>2?'s':''}` : '';
+    html += `<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap">
+        <div>
+          <div class="card-rank">Session ${i+1} · ${date}</div>
+          <div class="card-title">${escHtml(mainShow)}${escHtml(multiShow)}</div>
+          <div class="card-sub">${session.length} episodes · ${fmtMs(totalMs)}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-family:'Fraunces',serif;font-size:1.8rem;font-weight:700;color:var(--accent2)">${session.length}</div>
+          <div style="font-size:0.72rem;color:var(--text3)">episodes</div>
+        </div>
+      </div>
+      <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
+        ${session.slice(0,5).map(r => `<div style="font-size:0.78rem;color:var(--text3);margin-bottom:3px">· ${escHtml(r.episode_name||'Unknown')} <span style="color:var(--text3);margin-left:4px">${fmtMs(r.ms_played||0)}</span></div>`).join('')}
+        ${session.length > 5 ? `<div style="font-size:0.75rem;color:var(--text3);margin-top:4px">…and ${session.length-5} more</div>` : ''}
+      </div>
+    </div>`;
+  });
+
+  el.innerHTML = html;
+  animateCount(document.getElementById('bi-count'), sessions.length);
+  animateCount(document.getElementById('bi-most'), Math.max(...sessions.map(s=>s.length)));
+  const longestMs = Math.max(...sessions.map(s => s.reduce((t,r) => t+(r.ms_played||0),0)));
+  document.getElementById('bi-longest').textContent = fmtMs(longestMs);
+  // Store for personality
+  State.computed.bingeSessions = sessions.length;
+}
+
+/* ═══════════════════════════════════════════
+   TOOL 4: HOW PLUGGED IN (Spotify OAuth PKCE)
+═══════════════════════════════════════════ */
+function renderPluggedIn() {
+  const el = document.getElementById('plugged-in-content');
+
+  // Check if we're returning from OAuth
+  const params = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.replace('#','?').slice(1));
+  const code = params.get('code') || hashParams.get('code');
+  const returnedState = params.get('state') || hashParams.get('state');
+  const savedState = sessionStorage.getItem('pkce_state');
+  const savedVerifier = sessionStorage.getItem('pkce_verifier');
+
+  if (code && returnedState && savedState && returnedState === savedState) {
+    el.innerHTML = `<div class="card" style="text-align:center;padding:40px"><div class="empty-icon">⚡</div><div class="card-title" style="font-size:1.1rem">Fetching Spotify data…</div></div>`;
+    exchangeCodeAndFetch(code, savedVerifier).catch(err => {
+      el.innerHTML = `<div class="landing-error" style="display:block">${err.message}</div>` + buildPluggedInForm();
+    });
+    return;
+  }
+
+  if (State.spotifyToken) {
+    fetchPluggedInData();
+    return;
+  }
+
+  el.innerHTML = buildPluggedInForm();
+}
+
+function buildPluggedInForm() {
+  return `
+    <div class="oauth-box">
+      <div style="font-size:2rem;margin-bottom:12px">📡</div>
+      <div style="font-size:1rem;font-weight:600;margin-bottom:8px">Connect Spotify</div>
+      <div style="font-size:0.82rem;color:var(--text2);margin-bottom:20px;line-height:1.6">
+        This tool compares your listening against top podcasts by category. It only reads public chart data — not your private account.
+        You need a Spotify Developer app Client ID. <a href="https://developer.spotify.com/dashboard" target="_blank" style="color:var(--accent)">Create one here</a> with redirect URI set to <code style="font-size:0.75rem;background:var(--bg3);padding:2px 6px;border-radius:4px">${window.location.href.split('?')[0]}</code>
+      </div>
+      <div class="client-id-row">
+        <input class="client-id-input" id="client-id-input" type="text" placeholder="Spotify Client ID" value="${escHtml(State.clientId)}">
+      </div>
+      <button class="oauth-btn" onclick="startOAuth()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+        Connect Spotify
+      </button>
+    </div>
+    <div style="text-align:center;font-size:0.78rem;color:var(--text3)">
+      No Spotify account? You can still view the categories and requirements below.
+    </div>
+    ${buildPluggedInCategories()}`;
+}
+
+function buildPluggedInCategories() {
+  const categories = ['News','Business','Health & Fitness','Society & Culture'];
+  return `<div style="margin-top:32px">
+    <div style="font-size:0.9rem;font-weight:600;color:var(--text2);margin-bottom:16px">Tracked Categories</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
+      ${categories.map(c => `<div class="card-sm">
+        <div style="font-size:1.2rem;margin-bottom:6px">${categoryIcon(c)}</div>
+        <div class="card-title" style="font-size:0.88rem">${c}</div>
+        <div class="card-sub">Top 50 podcasts tracked</div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+function categoryIcon(cat) {
+  const m = { 'News':'📰','Business':'💼','Health & Fitness':'💪','Society & Culture':'🌐' };
+  return m[cat] || '🎙️';
+}
+
+async function startOAuth() {
+  const clientId = document.getElementById('client-id-input').value.trim();
+  if (!clientId) { alert('Please enter your Spotify Client ID'); return; }
+  State.clientId = clientId;
+  localStorage.setItem('spotify_client_id', clientId);
+
+  const verifier = generateRandomString(64);
+  const challenge = await generateCodeChallenge(verifier);
+  const state = generateRandomString(16);
+  sessionStorage.setItem('pkce_verifier', verifier);
+  sessionStorage.setItem('pkce_state', state);
+  sessionStorage.setItem('pkce_client_id', clientId);
+
+  const redirectUri = window.location.href.split('?')[0];
+  const scope = 'user-top-read';
+  const url = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&code_challenge_method=S256&code_challenge=${challenge}&state=${state}&scope=${encodeURIComponent(scope)}`;
+  window.location.href = url;
+}
+
+function generateRandomString(len) {
+  const arr = new Uint8Array(len);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, b => ('0' + b.toString(16)).slice(-2)).join('').slice(0, len);
+}
+async function generateCodeChallenge(verifier) {
+  const enc = new TextEncoder().encode(verifier);
+  const hash = await crypto.subtle.digest('SHA-256', enc);
+  return btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+}
+
+async function exchangeCodeAndFetch(code, verifier) {
+  const clientId = sessionStorage.getItem('pkce_client_id') || State.clientId;
+  const redirectUri = window.location.href.split('?')[0];
+  const res = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ client_id: clientId, grant_type: 'authorization_code', code, redirect_uri: redirectUri, code_verifier: verifier })
+  });
+  if (!res.ok) throw new Error('Token exchange failed: ' + await res.text());
+  const data = await res.json();
+  State.spotifyToken = data.access_token;
+  sessionStorage.removeItem('pkce_state');
+  sessionStorage.removeItem('pkce_verifier');
+  // Clean URL
+  window.history.replaceState({}, document.title, window.location.pathname);
+  await fetchPluggedInData();
+}
+
+async function fetchPluggedInData() {
+  const el = document.getElementById('plugged-in-content');
+  el.innerHTML = `<div class="card" style="text-align:center;padding:40px"><div class="empty-icon">🔍</div><div class="card-title">Searching Spotify podcasts…</div></div>`;
+
+  const categories = [
+    { name: 'News', query: 'news' },
+    { name: 'Business', query: 'business' },
+    { name: 'Health & Fitness', query: 'health fitness' },
+    { name: 'Society & Culture', query: 'society culture' },
+  ];
+
+  // Get user's podcast listening in last 90 days
+  const cutoff = new Date(Date.now() - 90 * 86400000);
+  const recentPods = State.podcasts.filter(r => new Date(r.ts) >= cutoff);
+  const listenedShows = new Set(recentPods.map(r => r.episode_show_name?.toLowerCase().trim()));
+
+  const results = [];
+  for (const cat of categories) {
+    try {
+      const res = await fetch(
+        `https://api.spotify.com/v1/search?q=${encodeURIComponent(cat.query)}&type=show&market=US&limit=50`,
+        { headers: { Authorization: `Bearer ${State.spotifyToken}` } }
+      );
+      if (!res.ok) throw new Error(res.status);
+      const data = await res.json();
+      const shows = (data.shows?.items || []).filter(Boolean);
+      const matched = shows.filter(s => listenedShows.has(s.name?.toLowerCase().trim()));
+      const score = Math.round((matched.length / Math.max(shows.length, 1)) * 100);
+      results.push({ ...cat, shows, matched, score });
+    } catch(e) {
+      results.push({ ...cat, shows: [], matched: [], score: 0, error: true });
+    }
+  }
+
+  const avgScore = results.reduce((s,r) => s+r.score,0) / results.length;
+  State.computed.pluggedInScore = avgScore;
+
+  let html = `
+    <div class="stat-row">
+      <div class="stat-box"><div class="stat-box-val" id="pi-avg">0</div><div class="stat-box-label">Avg Plugged-In Score</div></div>
+      <div class="stat-box"><div class="stat-box-val" id="pi-shows">0</div><div class="stat-box-label">Shows Matched</div></div>
+      <div class="stat-box"><div class="stat-box-val" id="pi-recent">0</div><div class="stat-box-label">Recent Podcast Plays</div></div>
+    </div>`;
+
+  for (const cat of results) {
+    html += `<div class="card" style="margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <span style="font-size:1.5rem">${categoryIcon(cat.name)}</span>
+        <div>
+          <div class="card-title">${cat.name}</div>
+          ${cat.error ? '<div class="card-sub" style="color:var(--red)">Failed to fetch data</div>' : `<div class="card-sub">${cat.matched.length} of ${cat.shows.length} top shows in your history</div>`}
+        </div>
+        <div style="margin-left:auto;text-align:right">
+          <div style="font-family:\'Fraunces\',serif;font-size:2rem;font-weight:700;color:var(--accent2)">${cat.score}</div>
+          <div style="font-size:0.72rem;color:var(--text3)">/ 100</div>
+        </div>
+      </div>
+      <div class="meter-bar-wrap"><div class="meter-bar-fill" data-width="${cat.score}%" style="width:0"></div></div>
+      ${cat.matched.length ? `<div style="margin-top:16px"><div style="font-size:0.75rem;color:var(--text3);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em">You've listened to</div>${cat.matched.slice(0,5).map(s=>`<div style="font-size:0.82rem;color:var(--accent2);margin-bottom:4px">✓ ${escHtml(s.name)}</div>`).join('')}</div>` : ''}
+      ${cat.shows.length > 0 && cat.matched.length < cat.shows.length ? `<div style="margin-top:12px"><div style="font-size:0.75rem;color:var(--text3);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em">Missed</div>${cat.shows.filter(s=>!cat.matched.includes(s)).slice(0,3).map(s=>`<div style="font-size:0.8rem;color:var(--text3);margin-bottom:4px">→ ${escHtml(s.name)}</div>`).join('')}</div>` : ''}
+    </div>`;
+  }
+
+  el.innerHTML = html;
+  const totalMatched = results.reduce((s,r) => s + r.matched.length, 0);
+  animateCount(document.getElementById('pi-avg'), Math.round(avgScore));
+  animateCount(document.getElementById('pi-shows'), totalMatched);
+  animateCount(document.getElementById('pi-recent'), recentPods.length);
+  setTimeout(() => {
+    el.querySelectorAll('[data-width]').forEach(el => { el.style.width = el.dataset.width; });
+  }, 100);
+}
+
+/* ═══════════════════════════════════════════
+   TOOL 5: ONE HIT WONDER RELATIONSHIP
+═══════════════════════════════════════════ */
+function renderOneHit() {
+  const el = document.getElementById('one-hit-content');
+  if (!State.music.length) {
+    el.innerHTML = emptyState('🎵','No music data','Load a Spotify export with music listening history.');
+    return;
+  }
+
+  // Count plays per artist and per track
+  const artistPlays = {};
+  const artistTracks = {};
+  for (const r of State.music) {
+    const artist = r.master_metadata_album_artist_name;
+    const track = r.master_metadata_track_name;
+    if (!artist || !track) continue;
+    artistPlays[artist] = (artistPlays[artist] || 0) + 1;
+    if (!artistTracks[artist]) artistTracks[artist] = {};
+    artistTracks[artist][track] = (artistTracks[artist][track] || 0) + 1;
+  }
+
+  const results = [];
+  for (const [artist, total] of Object.entries(artistPlays)) {
+    if (total < 20) continue;
+    const tracks = artistTracks[artist];
+    const topTrack = Object.entries(tracks).sort((a,b) => b[1]-a[1])[0];
+    const pct = topTrack[1] / total;
+    if (pct < 0.7) continue;
+    results.push({ artist, topTrack: topTrack[0], topTrackPlays: topTrack[1], total, pct });
+  }
+  results.sort((a,b) => b.pct - a.pct);
+
+  if (!results.length) {
+    el.innerHTML = emptyState('🎨','No one-hit wonders found','You listen to your artists more broadly. Respect.');
+    return;
+  }
+
+  let html = `
+    <div class="stat-row">
+      <div class="stat-box"><div class="stat-box-val" id="oh-count">0</div><div class="stat-box-label">One-Track Artists</div></div>
+      <div class="stat-box"><div class="stat-box-val" id="oh-top">0%</div><div class="stat-box-label">Highest Concentration</div></div>
+    </div>
+    <ul class="result-list">`;
+
+  results.slice(0,20).forEach((r, i) => {
+    const pct = Math.round(r.pct * 100);
+    html += `<li>
+      <div class="result-num">${i+1}</div>
+      <div class="result-body">
+        <div class="result-title">${escHtml(r.artist)}</div>
+        <div class="result-sub">You basically only play: <strong style="color:var(--accent2)">"${escHtml(r.topTrack)}"</strong></div>
+        <div class="result-stats">
+          <span class="result-stat">Total plays: <strong>${r.total}</strong></span>
+          <span class="result-stat">That one song: <strong>${r.topTrackPlays}×</strong></span>
+          <span class="result-stat">Concentration: <strong>${pct}%</strong></span>
+        </div>
+        <div class="bar-wrap" style="margin-top:8px;max-width:300px">
+          <div class="bar-fill bar-amber" data-width="${pct}%" style="width:0"></div>
+        </div>
+      </div>
+    </li>`;
+  });
+  html += '</ul>';
+  el.innerHTML = html;
+
+  animateCount(document.getElementById('oh-count'), results.length);
+  document.getElementById('oh-top').textContent = Math.round(results[0].pct * 100) + '%';
+  animateBars(el);
+}
+
+/* ═══════════════════════════════════════════
+   TOOL 6: PEAK OBSESSION
+═══════════════════════════════════════════ */
+function renderPeakObsession() {
+  const el = document.getElementById('peak-obsession-content');
+  if (!State.music.length) {
+    el.innerHTML = emptyState('🎵','No music data','Load a Spotify export with music listening history.');
+    return;
+  }
+
+  // Count plays per track
+  const trackPlays = {};
+  const trackArtist = {};
+  const trackDates = {};
+  for (const r of State.music) {
+    const track = r.master_metadata_track_name;
+    const artist = r.master_metadata_album_artist_name;
+    if (!track) continue;
+    const key = `${artist}||${track}`;
+    trackPlays[key] = (trackPlays[key] || 0) + 1;
+    trackArtist[key] = artist;
+    if (!trackDates[key]) trackDates[key] = [];
+    trackDates[key].push(new Date(r.ts));
+  }
+
+  // Top 30 tracks
+  const top30 = Object.entries(trackPlays).sort((a,b) => b[1]-a[1]).slice(0,30);
+
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now - 30*86400000);
+
+  const results = [];
+  for (const [key, totalPlays] of top30) {
+    const [artist, track] = key.split('||');
+    const dates = trackDates[key].sort((a,b) => a-b);
+
+    // Find 4-week rolling window with most plays
+    const WINDOW_MS = 28 * 86400000;
+    let peakCount = 0;
+    let peakDate = dates[0];
+    for (let i = 0; i < dates.length; i++) {
+      const windowEnd = new Date(dates[i].getTime() + WINDOW_MS);
+      const count = dates.filter(d => d >= dates[i] && d <= windowEnd).length;
+      if (count > peakCount) { peakCount = count; peakDate = dates[i]; }
+    }
+
+    const recentPlays = dates.filter(d => d >= thirtyDaysAgo).length;
+    const dropOff = peakCount - recentPlays;
+
+    // Build weekly histogram for sparkline (last 52 weeks from first play)
+    const firstDate = dates[0];
+    const weeks = {};
+    for (const d of dates) {
+      const wk = weekKey(d.toISOString());
+      weeks[wk] = (weeks[wk] || 0) + 1;
+    }
+
+    results.push({ artist, track, totalPlays, peakCount, peakDate, recentPlays, dropOff, weeks });
+  }
+  results.sort((a,b) => b.dropOff - a.dropOff);
+
+  let html = `
+    <div class="stat-row">
+      <div class="stat-box"><div class="stat-box-val" id="po-total">0</div><div class="stat-box-label">Tracks Analyzed</div></div>
+      <div class="stat-box"><div class="stat-box-val" id="po-drop">0</div><div class="stat-box-label">Biggest Peak-to-Now Drop</div></div>
+    </div>
+    <div style="font-size:0.78rem;color:var(--text3);margin-bottom:24px">Sorted by biggest drop from peak — the songs you are most "over."</div>
+    <ul class="result-list">`;
+
+  results.forEach((r, i) => {
+    const peakDateStr = r.peakDate.toLocaleDateString('en-US',{month:'short',year:'numeric'});
+    const spark = buildSparkline(r.weeks, 80, 28);
+    html += `<li>
+      <div class="result-num">${i+1}</div>
+      <div class="result-body">
+        <div class="result-title">${escHtml(r.track)}</div>
+        <div class="result-sub" style="margin-bottom:8px">${escHtml(r.artist)}</div>
+        <div style="margin-bottom:8px">${spark}</div>
+        <div class="result-stats">
+          <span class="result-stat">Peak 4-wk: <strong>${r.peakCount} plays</strong></span>
+          <span class="result-stat">Peak period: <strong>${peakDateStr}</strong></span>
+          <span class="result-stat">Last 30 days: <strong>${r.recentPlays} plays</strong></span>
+          <span class="result-stat">Drop-off: <strong style="color:var(--red)">-${r.dropOff}</strong></span>
+        </div>
+      </div>
+    </li>`;
+  });
+  html += '</ul>';
+  el.innerHTML = html;
+
+  animateCount(document.getElementById('po-total'), results.length);
+  animateCount(document.getElementById('po-drop'), results[0]?.dropOff || 0);
+}
+
+function buildSparkline(weekMap, width, height) {
+  const weeks = Object.keys(weekMap).sort();
+  if (!weeks.length) return '';
+  const vals = weeks.map(w => weekMap[w]);
+  const max = Math.max(...vals, 1);
+  const bw = Math.max(2, Math.floor(width / weeks.length) - 1);
+  const totalW = weeks.length * (bw + 1);
+  let bars = '';
+  vals.forEach((v, i) => {
+    const h = Math.max(2, Math.round((v / max) * height));
+    const x = i * (bw + 1);
+    const y = height - h;
+    const alpha = 0.3 + (v / max) * 0.7;
+    bars += `<rect x="${x}" y="${y}" width="${bw}" height="${h}" fill="rgba(29,185,84,${alpha.toFixed(2)})" rx="1"/>`;
+  });
+  return `<svg class="sparkline" width="${totalW}" height="${height}" viewBox="0 0 ${totalW} ${height}">${bars}</svg>`;
+}
+
+/* ═══════════════════════════════════════════
+   TOOL 7: FORGOTTEN PLAYS
+═══════════════════════════════════════════ */
+function renderForgotten() {
+  const el = document.getElementById('forgotten-content');
+  if (!State.music.length) {
+    el.innerHTML = emptyState('🎵','No music data','Load a Spotify export with music listening history.');
+    return;
+  }
+
+  const content = document.createElement('div');
+  content.innerHTML = `
+    <div class="slider-row">
+      <label>Dormant threshold:</label>
+      <input type="range" id="forgotten-slider" min="0" max="2" step="1" value="0">
+      <div class="slider-val" id="forgotten-val">90 days</div>
+    </div>
+    <div id="forgotten-list"></div>`;
+  el.innerHTML = '';
+  el.appendChild(content);
+
+  const thresholds = [90, 180, 365];
+  const labels = ['90 days', '180 days', '1 year'];
+  const slider = document.getElementById('forgotten-slider');
+  slider.addEventListener('input', () => {
+    document.getElementById('forgotten-val').textContent = labels[slider.value];
+    renderForgottenList(thresholds[slider.value]);
+  });
+  renderForgottenList(90);
+}
+
+function renderForgottenList(dormantDays) {
+  const el = document.getElementById('forgotten-list');
+  const now = new Date();
+
+  const trackData = {};
+  for (const r of State.music) {
+    const track = r.master_metadata_track_name;
+    const artist = r.master_metadata_album_artist_name;
+    if (!track) continue;
+    const key = `${artist}||${track}`;
+    if (!trackData[key]) trackData[key] = { track, artist, plays: 0, lastPlayed: null };
+    trackData[key].plays++;
+    const d = new Date(r.ts);
+    if (!trackData[key].lastPlayed || d > trackData[key].lastPlayed) trackData[key].lastPlayed = d;
+  }
+
+  const results = Object.values(trackData).filter(t => {
+    if (t.plays < 10) return false;
+    const daysSinceLast = (now - t.lastPlayed) / 86400000;
+    return daysSinceLast > dormantDays;
+  }).map(t => ({
+    ...t,
+    daysSince: Math.floor((now - t.lastPlayed) / 86400000)
+  }));
+  results.sort((a,b) => b.plays - a.plays);
+
+  if (!results.length) {
+    el.innerHTML = emptyState('💚','No forgotten songs','You\'re still playing everything in your history, or nothing has been quiet long enough yet.');
+    return;
+  }
+
+  let html = `
+    <div class="stat-row">
+      <div class="stat-box"><div class="stat-box-val">${results.length.toLocaleString()}</div><div class="stat-box-label">Forgotten Songs</div></div>
+      <div class="stat-box"><div class="stat-box-val">${results[0]?.plays || 0}</div><div class="stat-box-label">Most Played (Then Abandoned)</div></div>
+      <div class="stat-box"><div class="stat-box-val">${results[0]?.daysSince || 0}d</div><div class="stat-box-label">Longest Silence (days)</div></div>
+    </div>
+    <ul class="result-list">`;
+
+  results.slice(0,30).forEach((r, i) => {
+    const lastStr = r.lastPlayed.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    html += `<li>
+      <div class="result-num">${i+1}</div>
+      <div class="result-body">
+        <div class="result-title">${escHtml(r.track)}</div>
+        <div class="result-sub">${escHtml(r.artist)}</div>
+        <div class="result-stats">
+          <span class="result-stat">Total plays: <strong>${r.plays}</strong></span>
+          <span class="result-stat">Last played: <strong>${lastStr}</strong></span>
+          <span class="result-stat">Silent for: <strong style="color:var(--amber)">${r.daysSince} days</strong></span>
+        </div>
+      </div>
+    </li>`;
+  });
+  html += '</ul>';
+  el.innerHTML = html;
+}
+
+/* ═══════════════════════════════════════════
+   TOOL 8: MUSIC vs PODCAST BRAIN HEATMAP
+═══════════════════════════════════════════ */
+function renderBrain() {
+  const el = document.getElementById('brain-content');
+  if (!State.music.length && !State.podcasts.length) {
+    el.innerHTML = emptyState('🧠','No data','Load a Spotify export first.');
+    return;
+  }
+
+  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const hours = Array.from({length:24},(_,i)=>i);
+
+  function buildGrid(records, colorFn) {
+    const grid = {};
+    let max = 0;
+    for (const r of records) {
+      const d = new Date(r.ts);
+      const dow = (d.getDay() + 6) % 7; // Mon=0
+      const hr = d.getHours();
+      const k = `${dow}-${hr}`;
+      grid[k] = (grid[k] || 0) + 1;
+      if (grid[k] > max) max = grid[k];
+    }
+    return { grid, max };
+  }
+
+  const { grid: mGrid, max: mMax } = buildGrid(State.music, 'green');
+  const { grid: pGrid, max: pMax } = buildGrid(State.podcasts, 'blue');
+
+  function renderHeatmap(grid, max, color) {
+    const hourLabels = hours.map(h => h === 0 ? '12a' : h < 12 ? h+'a' : h === 12 ? '12p' : (h-12)+'p');
+    let html = `<div class="heatmap-grid">
+      <div></div>
+      ${hourLabels.map(h => `<div class="heatmap-label" style="justify-content:center;font-size:0.58rem">${h}</div>`).join('')}`;
+    for (let dow = 0; dow < 7; dow++) {
+      html += `<div class="heatmap-label">${days[dow]}</div>`;
+      for (let hr = 0; hr < 24; hr++) {
+        const val = grid[`${dow}-${hr}`] || 0;
+        const intensity = max > 0 ? val / max : 0;
+        const alpha = intensity > 0 ? 0.15 + intensity * 0.85 : 0;
+        const bg = color === 'green'
+          ? `rgba(29,185,84,${alpha.toFixed(2)})`
+          : `rgba(92,143,224,${alpha.toFixed(2)})`;
+        html += `<div class="heatmap-cell" style="background:${bg}" data-tip="${days[dow]} ${hourLabels[hr]}: ${val} plays"></div>`;
+      }
+    }
+    html += '</div>';
+    return html;
+  }
+
+  // Compute insight sentence
+  function peakHour(grid) {
+    let best = -1, bestHr = 0;
+    for (let hr = 0; hr < 24; hr++) {
+      const total = [0,1,2,3,4].reduce((s,d) => s+(grid[`${d}-${hr}`]||0),0); // weekdays
+      if (total > best) { best = total; bestHr = hr; }
+    }
+    return bestHr;
+  }
+  const mPeak = peakHour(mGrid);
+  const pPeak = peakHour(pGrid);
+  const mPeakStr = mPeak < 12 ? `${mPeak||12}am` : mPeak === 12 ? '12pm' : `${mPeak-12}pm`;
+  const pPeakStr = pPeak < 12 ? `${pPeak||12}am` : pPeak === 12 ? '12pm' : `${pPeak-12}pm`;
+
+  el.innerHTML = `
+    <div class="toggle-row">
+      <button class="toggle-btn active" id="brain-music-btn" onclick="switchBrainMode('music')">🎵 Music</button>
+      <button class="toggle-btn" id="brain-pod-btn" onclick="switchBrainMode('podcast')">🎙️ Podcasts</button>
+    </div>
+    <div id="brain-music-map">${State.music.length ? renderHeatmap(mGrid, mMax, 'green') : emptyState('🎵','No music data','')}</div>
+    <div id="brain-pod-map" style="display:none">${State.podcasts.length ? renderHeatmap(pGrid, pMax, 'blue') : emptyState('🎙️','No podcast data','')}</div>
+    <div style="margin-top:20px;padding:16px 20px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm)">
+      <div style="font-size:0.78rem;color:var(--text3);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em">Pattern Insight</div>
+      <div style="font-size:0.92rem;color:var(--text2)">
+        ${State.music.length ? `Your music peaks around <strong style="color:var(--accent2)">${mPeakStr}</strong> on weekdays.` : ''}
+        ${State.podcasts.length ? ` Podcast listening peaks around <strong style="color:var(--blue)">${pPeakStr}</strong>.` : ''}
+        ${(mPeak !== pPeak && State.music.length && State.podcasts.length) ? ` You switch modes across the day.` : ''}
+      </div>
+    </div>`;
+}
+
+function switchBrainMode(mode) {
+  document.getElementById('brain-music-map').style.display = mode === 'music' ? '' : 'none';
+  document.getElementById('brain-pod-map').style.display  = mode === 'podcast' ? '' : 'none';
+  document.getElementById('brain-music-btn').classList.toggle('active', mode === 'music');
+  document.getElementById('brain-pod-btn').classList.toggle('active', mode === 'podcast');
+}
+
+/* ═══════════════════════════════════════════
+   TOOL 9: LISTENER PERSONALITY
+═══════════════════════════════════════════ */
+function renderPersonality() {
+  const el = document.getElementById('personality-content');
+  if (!State.music.length && !State.podcasts.length) {
+    el.innerHTML = emptyState('🪞','No data loaded','Upload your Spotify zip to discover your listener personality.');
+    return;
+  }
+
+  // Compute metrics
+  // 1. Podcast completion rate (using show-typical length proxy)
+  let podCompletionRate = null;
+  if (State.podcasts.length) {
+    const { showTypical, episodes } = buildPodcastData();
+    const rates = Object.values(episodes).map(ep => episodeCompletion(ep, showTypical)).filter(r => r !== null);
+    if (rates.length) podCompletionRate = rates.reduce((a,b) => a+b, 0) / rates.length;
+  }
+
+  // 2. Top-20 song concentration
+  let top20Pct = null;
+  if (State.music.length) {
+    const trackCounts = {};
+    for (const r of State.music) {
+      const k = r.master_metadata_track_name;
+      if (k) trackCounts[k] = (trackCounts[k]||0) + 1;
+    }
+    const sorted = Object.values(trackCounts).sort((a,b) => b-a);
+    const top20 = sorted.slice(0,20).reduce((a,b) => a+b, 0);
+    top20Pct = top20 / State.music.length;
+  }
+
+  // 3. Binge sessions (use computed or recompute quick)
+  if (State.computed.bingeSessions === undefined) {
+    if (!State.podcasts.length) {
+      State.computed.bingeSessions = 0;
+    } else {
+      const sorted = [...State.podcasts].sort((a,b) => new Date(a.ts)-new Date(b.ts));
+      let count = 0, current = [sorted[0]];
+      for (let i=1;i<sorted.length;i++) {
+        if (new Date(sorted[i].ts)-new Date(sorted[i-1].ts) <= 30*60*1000) { current.push(sorted[i]); }
+        else { if(current.length>=3) count++; current=[sorted[i]]; }
+      }
+      if (current.length>=3) count++;
+      State.computed.bingeSessions = count;
+    }
+  }
+  const bingeSessions = State.computed.bingeSessions;
+
+  // 4. Plugged-in score
+  const pluggedInScore = State.computed.pluggedInScore;
+
+  // Determine personality
+  let label, desc, color;
+  const stats = [];
+
+  if (podCompletionRate !== null && podCompletionRate < 0.4) {
+    label = 'The Collector';
+    desc = 'Your queue is a museum of good intentions. You find everything interesting enough to start and nothing quite compelling enough to finish. There\'s a certain optimism to it — you believe in possibility. The follow-through, though, is a work in progress.';
+    color = 'var(--amber)';
+    stats.push({ label: 'Podcast completion rate', val: Math.round(podCompletionRate*100) + '%', note: 'under 40%' });
+    if (top20Pct) stats.push({ label: 'Music concentration', val: Math.round(top20Pct*100) + '%', note: 'of plays in top 20 songs' });
+    stats.push({ label: 'Binge sessions', val: bingeSessions, note: 'back-to-back listening blocks' });
+  } else if (top20Pct !== null && top20Pct > 0.6) {
+    label = 'The Comfort Seeker';
+    desc = 'You know what you like, and you play it. Again. And again. While the algorithmically blessed are off discovering obscure genres, you\'ve found your corner of the world and you\'re staying in it. It\'s not laziness — it\'s loyalty to what feels right.';
+    color = 'var(--blue)';
+    stats.push({ label: 'Top-20 song concentration', val: Math.round(top20Pct*100) + '%', note: 'of all music plays' });
+    if (podCompletionRate !== null) stats.push({ label: 'Podcast completion rate', val: Math.round(podCompletionRate*100) + '%', note: '' });
+    stats.push({ label: 'Binge sessions', val: bingeSessions, note: '' });
+  } else if (bingeSessions > 5) {
+    label = 'The Deep Diver';
+    desc = 'When something hooks you, it really hooks you. You don\'t just sample — you commit. Your listening history is a series of obsessions, each one consuming you completely before you surface and find the next. Podcasts marathons, album runs, artist spirals — you go deep.';
+    color = 'var(--purple)';
+    stats.push({ label: 'Binge sessions identified', val: bingeSessions, note: '3+ episodes back to back' });
+    if (top20Pct) stats.push({ label: 'Music concentration', val: Math.round(top20Pct*100) + '%', note: 'in top 20 tracks' });
+    if (podCompletionRate !== null) stats.push({ label: 'Podcast completion rate', val: Math.round(podCompletionRate*100) + '%', note: '' });
+  } else if (pluggedInScore !== undefined && pluggedInScore > 70) {
+    label = 'The Tastemaker';
+    desc = 'You\'re tuned in. Your listening aligns with what\'s influential, relevant, and on the cultural pulse. Whether by design or pure instinct, you end up listening to what matters. Other people find things through you — they just don\'t know it yet.';
+    color = 'var(--accent2)';
+    stats.push({ label: 'Plugged-in score', val: Math.round(pluggedInScore), note: 'across categories' });
+    if (top20Pct) stats.push({ label: 'Music concentration', val: Math.round(top20Pct*100) + '%', note: 'in top 20 tracks' });
+    stats.push({ label: 'Binge sessions', val: bingeSessions, note: '' });
+  } else {
+    label = 'The Grazer';
+    desc = 'You move across the landscape of sound without getting too attached. A bit of music here, a podcast there, something new when the mood strikes. You\'re not obsessed, you\'re not systematic — you just listen when something calls to you, and stop when it doesn\'t. A life well-grazed.';
+    color = 'var(--text2)';
+    if (podCompletionRate !== null) stats.push({ label: 'Podcast completion rate', val: Math.round(podCompletionRate*100) + '%', note: '' });
+    if (top20Pct) stats.push({ label: 'Music concentration', val: Math.round(top20Pct*100) + '%', note: 'in top 20 tracks' });
+    stats.push({ label: 'Binge sessions', val: bingeSessions, note: '' });
+  }
+
+  while (stats.length < 3) stats.push({ label: 'Total plays analyzed', val: fmtNum(State.music.length + State.podcasts.length), note: '' });
+
+  el.innerHTML = `
+    <div style="margin-bottom:40px">
+      <div class="personality-label" style="color:${color}">${label}</div>
+      <div class="personality-desc">${desc}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;max-width:640px">
+        ${stats.map(s => `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px">
+          <div style="font-family:'Fraunces',serif;font-size:1.8rem;font-weight:700;color:${color};margin-bottom:4px">${s.val}</div>
+          <div style="font-size:0.78rem;color:var(--text2);font-weight:600">${s.label}</div>
+          ${s.note ? `<div style="font-size:0.7rem;color:var(--text3);margin-top:2px">${s.note}</div>` : ''}
+        </div>`).join('')}
+      </div>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px">
+      <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin-bottom:16px">Full Dataset</div>
+      <div style="display:flex;gap:32px;flex-wrap:wrap">
+        <div><div style="font-size:1.2rem;font-weight:700;color:var(--text)">${fmtNum(State.music.length)}</div><div style="font-size:0.75rem;color:var(--text3)">Music plays</div></div>
+        <div><div style="font-size:1.2rem;font-weight:700;color:var(--text)">${fmtNum(State.podcasts.length)}</div><div style="font-size:0.75rem;color:var(--text3)">Podcast plays</div></div>
+        ${podCompletionRate !== null ? `<div><div style="font-size:1.2rem;font-weight:700;color:var(--text)">${Math.round(podCompletionRate*100)}%</div><div style="font-size:0.75rem;color:var(--text3)">Pod completion</div></div>` : ''}
+        ${top20Pct !== null ? `<div><div style="font-size:1.2rem;font-weight:700;color:var(--text)">${Math.round(top20Pct*100)}%</div><div style="font-size:0.75rem;color:var(--text3)">Top-20 concentration</div></div>` : ''}
+        <div><div style="font-size:1.2rem;font-weight:700;color:var(--text)">${bingeSessions}</div><div style="font-size:0.75rem;color:var(--text3)">Binge sessions</div></div>
+      </div>
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════
+   XSS SAFETY
+═══════════════════════════════════════════ */
+function escHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+/* ═══════════════════════════════════════════
+   OAUTH CALLBACK ON LOAD
+═══════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  const state = params.get('state');
+  const savedState = sessionStorage.getItem('pkce_state');
+  if (code && state && savedState && state === savedState) {
+    // Navigate to plugged-in to handle the callback
+    navigate('plugged-in');
+  }
+});
+</script>
+</body>
+</html>
