@@ -1093,12 +1093,11 @@ function renderGuiltQueue(windowIdx = 3) {
 
   top.forEach((ep, i) => {
     const pct = Math.round(ep.completionRate * 100);
-    const badge = i < 3 ? '<span class="badge badge-red">No excuse</span>' : '';
     const lastTried = ep.lastIntentTs.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
     html += `<li>
       <div class="result-num">${i+1}</div>
       <div class="result-body">
-        <div class="result-title">${escHtml(ep.name)} ${badge}</div>
+        <div class="result-title">${escHtml(ep.name)}</div>
         <div class="result-sub">${escHtml(ep.show)}</div>
         <div class="result-stats">
           <span class="result-stat">Last tried: <strong>${lastTried}</strong></span>
