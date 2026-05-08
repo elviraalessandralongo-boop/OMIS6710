@@ -583,6 +583,14 @@ body {
     </div>
   </div>
 
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Reflections</div>
+    <div class="nav-item" data-page="discoveries">
+      <span class="nav-icon">✨</span> Discoveries
+      <span class="nav-num">10</span>
+    </div>
+  </div>
+
   <div class="sidebar-upload">
     <button class="upload-btn" onclick="document.getElementById('file-input').click()">
       ↑ Load New File
@@ -704,6 +712,16 @@ body {
       <div class="page-tagline">"This is what your data says about you."</div>
     </div>
     <div id="personality-content"></div>
+  </div>
+
+  <!-- TOOL 10: DISCOVERIES -->
+  <div id="page-discoveries" class="page">
+    <div class="page-header">
+      <div class="page-header-tag">Reflections · Tool 10</div>
+      <div class="page-title">Discoveries</div>
+      <div class="page-tagline">"The music and shows that found you — and stayed."</div>
+    </div>
+    <div id="discoveries-content"></div>
   </div>
 
 </main>
@@ -955,6 +973,7 @@ function renderTool(pageId) {
     'forgotten':      renderForgotten,
     'brain':          renderBrain,
     'personality':    renderPersonality,
+    'discoveries':    renderDiscoveries,
   }[pageId];
   if (fn) fn();
 }
@@ -2209,6 +2228,192 @@ function renderPersonality() {
       el2.textContent = s.val;
     }
   });
+}
+
+/* ═══════════════════════════════════════════
+   TOOL 10: DISCOVERIES
+═══════════════════════════════════════════ */
+function renderDiscoveries() {
+  const el = document.getElementById('discoveries-content');
+  if (!State.music.length && !State.podcasts.length) {
+    el.innerHTML = emptyState('✨','No data','Load a Spotify export first.');
+    return;
+  }
+
+  // ── Music: per-artist first/last play and total plays ──
+  const artistData = {};
+  for (const r of State.music) {
+    const artist = r.master_metadata_album_artist_name;
+    if (!artist) continue;
+    const date = new Date(r.ts);
+    if (!artistData[artist]) artistData[artist] = { firstDate: date, lastDate: date, totalPlays: 0 };
+    if (date < artistData[artist].firstDate) artistData[artist].firstDate = date;
+    if (date > artistData[artist].lastDate) artistData[artist].lastDate = date;
+    artistData[artist].totalPlays++;
+  }
+
+  // ── Music: per-year unique artists and play count ──
+  const yearData = {};
+  for (const r of State.music) {
+    const artist = r.master_metadata_album_artist_name;
+    if (!artist) continue;
+    const yr = new Date(r.ts).getFullYear();
+    if (!yearData[yr]) yearData[yr] = { totalPlays: 0, uniqueArtists: new Set(), newArtists: [] };
+    yearData[yr].totalPlays++;
+    yearData[yr].uniqueArtists.add(artist);
+  }
+  // Assign each artist to their discovery year
+  for (const [artist, data] of Object.entries(artistData)) {
+    const yr = data.firstDate.getFullYear();
+    if (yearData[yr]) yearData[yr].newArtists.push({ artist, totalPlays: data.totalPlays });
+  }
+
+  // ── Podcasts: per-show first/last play and total plays ──
+  const showData = {};
+  for (const r of State.podcasts) {
+    const show = r.episode_show_name;
+    if (!show) continue;
+    const date = new Date(r.ts);
+    if (!showData[show]) showData[show] = { firstDate: date, lastDate: date, totalPlays: 0 };
+    if (date < showData[show].firstDate) showData[show].firstDate = date;
+    if (date > showData[show].lastDate) showData[show].lastDate = date;
+    showData[show].totalPlays++;
+  }
+
+  const now = new Date();
+  const recentCutoff = new Date(now - 90 * 86400000);
+
+  // ── Top music discoveries: most-played artists, sorted by first heard ──
+  const topMusic = Object.entries(artistData)
+    .filter(([_, d]) => d.totalPlays >= 5)
+    .map(([artist, d]) => ({
+      artist,
+      firstDate: d.firstDate,
+      totalPlays: d.totalPlays,
+      stillListening: d.lastDate >= recentCutoff,
+    }))
+    .sort((a, b) => b.totalPlays - a.totalPlays)
+    .slice(0, 15);
+
+  // ── Top podcast discoveries ──
+  const topPods = Object.entries(showData)
+    .filter(([_, d]) => d.totalPlays >= 3)
+    .map(([show, d]) => ({
+      show,
+      firstDate: d.firstDate,
+      totalPlays: d.totalPlays,
+      stillListening: d.lastDate >= recentCutoff,
+    }))
+    .sort((a, b) => b.totalPlays - a.totalPlays)
+    .slice(0, 10);
+
+  // ── Year-by-year exploration stats ──
+  const years = Object.keys(yearData).sort();
+  const yearStats = years.map(yr => {
+    const yd = yearData[yr];
+    const newArtists = [...yd.newArtists].sort((a, b) => b.totalPlays - a.totalPlays);
+    const explorationRate = yd.uniqueArtists.size > 0 ? newArtists.length / yd.uniqueArtists.size : 0;
+    return { year: yr, newCount: newArtists.length, uniqueCount: yd.uniqueArtists.size, explorationRate, topDiscovery: newArtists[0]?.artist };
+  });
+
+  // ── Exploration chart SVG ──
+  const maxNew = Math.max(...yearStats.map(y => y.newCount), 1);
+  const chartH = 80;
+  const barW = Math.max(18, Math.floor(540 / yearStats.length) - 3);
+  const chartW = yearStats.length * (barW + 3);
+  let chartSvg = `<svg width="${chartW}" height="${chartH + 24}" viewBox="0 0 ${chartW} ${chartH + 24}" style="max-width:100%">`;
+  yearStats.forEach((ys, i) => {
+    const barH = Math.max(2, Math.round((ys.newCount / maxNew) * chartH));
+    const x = i * (barW + 3);
+    const y = chartH - barH;
+    const t = ys.explorationRate;
+    const r = Math.round(28 + t * (30 - 28));
+    const g = Math.round(28 + t * (210 - 28));
+    const b = Math.round(33 + t * (90 - 33));
+    chartSvg += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" fill="rgb(${r},${g},${b})" rx="2"/>`;
+    chartSvg += `<text x="${x + barW/2}" y="${chartH + 16}" text-anchor="middle" fill="#5a5a70" font-size="9" font-family="Space Grotesk,sans-serif">${ys.year}</text>`;
+  });
+  chartSvg += '</svg>';
+
+  // ── Render ──
+  let html = `
+    <div class="stat-row">
+      <div class="stat-box"><div class="stat-box-val" id="disc-artists">0</div><div class="stat-box-label">Artists Discovered</div></div>
+      ${State.podcasts.length ? `<div class="stat-box"><div class="stat-box-val" id="disc-shows">0</div><div class="stat-box-label">Podcasts Discovered</div></div>` : ''}
+      <div class="stat-box"><div class="stat-box-val" id="disc-years">0</div><div class="stat-box-label">Years of Listening</div></div>
+    </div>`;
+
+  // Biggest music finds
+  if (topMusic.length) {
+    html += `
+    <div style="margin-bottom:32px">
+      <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin-bottom:16px">Your Biggest Music Finds</div>
+      <ul class="result-list">`;
+    topMusic.forEach((d, i) => {
+      const firstStr = d.firstDate.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      const badge = d.stillListening ? '<span class="badge badge-green">Still listening</span>' : '';
+      html += `<li>
+        <div class="result-num">${i+1}</div>
+        <div class="result-body">
+          <div class="result-title">${escHtml(d.artist)} ${badge}</div>
+          <div class="result-stats">
+            <span class="result-stat">First heard: <strong>${firstStr}</strong></span>
+            <span class="result-stat">Total plays: <strong>${fmtNum(d.totalPlays)}</strong></span>
+          </div>
+        </div>
+      </li>`;
+    });
+    html += `</ul></div>`;
+  }
+
+  // Year-by-year exploration
+  if (yearStats.length) {
+    html += `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:24px">
+      <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin-bottom:4px">New Artists Discovered Per Year</div>
+      <div style="font-size:0.78rem;color:var(--text3);margin-bottom:16px">Brighter green = more exploratory that year. Best find = the artist you discovered that year and played the most overall.</div>
+      <div style="overflow-x:auto;margin-bottom:20px">${chartSvg}</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        ${yearStats.map(ys => `
+          <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;font-size:0.82rem">
+            <div style="min-width:36px;font-weight:700;color:var(--text2)">${ys.year}</div>
+            <div style="color:var(--accent2);font-weight:600;min-width:60px">${ys.newCount} new</div>
+            <div style="color:var(--text3);min-width:110px">${ys.uniqueCount} artists played</div>
+            <div style="color:var(--text3);min-width:70px">${Math.round(ys.explorationRate * 100)}% fresh</div>
+            ${ys.topDiscovery ? `<div style="color:var(--text3)">best find: <span style="color:var(--text2);font-style:italic">${escHtml(ys.topDiscovery)}</span></div>` : ''}
+          </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Podcast discoveries
+  if (topPods.length) {
+    html += `
+    <div style="margin-bottom:32px">
+      <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin-bottom:16px">Podcast Discoveries</div>
+      <ul class="result-list">`;
+    topPods.forEach((d, i) => {
+      const firstStr = d.firstDate.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      const badge = d.stillListening ? '<span class="badge badge-green">Still listening</span>' : '';
+      html += `<li>
+        <div class="result-num">${i+1}</div>
+        <div class="result-body">
+          <div class="result-title">${escHtml(d.show)} ${badge}</div>
+          <div class="result-stats">
+            <span class="result-stat">First heard: <strong>${firstStr}</strong></span>
+            <span class="result-stat">Episodes played: <strong>${fmtNum(d.totalPlays)}</strong></span>
+          </div>
+        </div>
+      </li>`;
+    });
+    html += `</ul></div>`;
+  }
+
+  el.innerHTML = html;
+  animateCount(document.getElementById('disc-artists'), Object.keys(artistData).length);
+  const showsEl = document.getElementById('disc-shows');
+  if (showsEl) animateCount(showsEl, Object.keys(showData).length);
+  animateCount(document.getElementById('disc-years'), years.length);
 }
 
 /* ═══════════════════════════════════════════
