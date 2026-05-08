@@ -904,6 +904,43 @@ function emptyState(icon, title, desc) {
   </div>`;
 }
 
+function downloadCSV(rows, filename) {
+  if (!rows.length) return;
+  const headers = Object.keys(rows[0]);
+  const lines = [
+    headers.join(','),
+    ...rows.map(r => headers.map(h => `"${String(r[h] ?? '').replace(/"/g, '""')}"`).join(','))
+  ];
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function downloadGuiltCSV() {
+  const rows = (State.computed._guiltResults || []).map(ep => ({
+    'Episode': ep.name,
+    'Show': ep.show,
+    'Last Tried': ep.lastIntentTs.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
+    'Completion %': Math.round(ep.completionRate * 100),
+    'Times Started': ep.totalPlays,
+  }));
+  downloadCSV(rows, 'guilt-queue.csv');
+}
+
+function downloadForgottenCSV() {
+  const rows = (State.computed._forgottenResults || []).map(r => ({
+    'Track': r.track,
+    'Artist': r.artist,
+    'Total Plays': r.plays,
+    'Last Played': r.lastPlayed.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
+    'Days Since Last Play': r.daysSince,
+  }));
+  downloadCSV(rows, 'forgotten-plays.csv');
+}
+
 /* ═══════════════════════════════════════════
    ROUTER
 ═══════════════════════════════════════════ */
@@ -1029,6 +1066,7 @@ function renderGuiltQueue(windowIdx = 3) {
   }
   // Sort by most recently abandoned first
   results.sort((a, b) => b.lastIntentTs - a.lastIntentTs);
+  State.computed._guiltResults = results;
 
   if (!results.length) {
     el.innerHTML = bannerHtml + `<div class="toggle-row">${toggleHtml}</div>` +
@@ -1046,8 +1084,9 @@ function renderGuiltQueue(windowIdx = 3) {
       <div class="stat-box"><div class="stat-box-val" id="gq-shows">0</div><div class="stat-box-label">Abandoned Podcasts</div></div>
       <div class="stat-box"><div class="stat-box-val" id="gq-avg">—</div><div class="stat-box-label">Avg Completion</div></div>
     </div>
-    <div style="margin-bottom:4px;font-size:0.78rem;color:var(--text3);font-style:italic">
-      "Intentional" = clicked on directly (not autoplay). Completion estimated from show's typical episode length. Sorted by most recently abandoned.
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">
+      <div style="font-size:0.78rem;color:var(--text3);font-style:italic">"Intentional" = clicked on directly (not autoplay). Completion estimated from show's typical episode length. Sorted by most recently abandoned.</div>
+      <button onclick="downloadGuiltCSV()" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:'Space Grotesk',sans-serif;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent2)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">↓ Export CSV</button>
     </div>
     ${results.length > SHOW_MAX ? `<div style="margin-bottom:16px;font-size:0.75rem;color:var(--text3)">Showing top ${SHOW_MAX} of ${fmtNum(results.length)}</div>` : '<div style="margin-bottom:16px"></div>'}
     <ul class="result-list">`;
@@ -1729,6 +1768,7 @@ function renderForgotten(windowIdx = 0) {
   const results = State.computed._forgottenTrackData
     .filter(rec => rec.daysSince > win.days)
     .sort((a, b) => b.plays - a.plays);
+  State.computed._forgottenResults = results;
 
   if (!results.length) {
     el.innerHTML = `<div class="toggle-row">${toggleHtml}</div>` +
@@ -1745,7 +1785,10 @@ function renderForgotten(windowIdx = 0) {
       <div class="stat-box"><div class="stat-box-val" id="fg-plays">—</div><div class="stat-box-label">Most Played (Then Abandoned)</div></div>
       <div class="stat-box"><div class="stat-box-val" id="fg-days">—</div><div class="stat-box-label">Longest Silence</div></div>
     </div>
-    ${results.length > FG_MAX ? `<div style="margin-bottom:16px;font-size:0.75rem;color:var(--text3)">Showing top ${FG_MAX} of ${fmtNum(results.length)} by play count</div>` : ''}
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+      ${results.length > FG_MAX ? `<div style="font-size:0.75rem;color:var(--text3)">Showing top ${FG_MAX} of ${fmtNum(results.length)} by play count</div>` : '<div></div>'}
+      <button onclick="downloadForgottenCSV()" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:'Space Grotesk',sans-serif;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent2)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">↓ Export CSV</button>
+    </div>
     <ul class="result-list">`;
 
   results.slice(0, FG_MAX).forEach((r, i) => {
