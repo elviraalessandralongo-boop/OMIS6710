@@ -959,6 +959,32 @@ function renderGuiltQueue() {
     return;
   }
 
+  // Welcome banner: dataset overview (shown only once per load)
+  if (!State.computed._welcomeShown) {
+    State.computed._welcomeShown = true;
+    const allMs = [...State.music, ...State.podcasts].reduce((s,r) => s+(r.ms_played||0), 0);
+    const totalH = Math.round(allMs / 3600000);
+    const allTs = [...State.music, ...State.podcasts].map(r => r.ts).sort();
+    const yr0 = allTs[0]?.slice(0,4), yr1 = allTs[allTs.length-1]?.slice(0,4);
+    const range = yr0 && yr1 && yr0 !== yr1 ? `${yr0}–${yr1}` : yr0 || '';
+    el.innerHTML = `<div style="background:linear-gradient(135deg,rgba(29,185,84,0.12) 0%,rgba(29,185,84,0.04) 100%);border:1px solid rgba(29,185,84,0.25);border-radius:var(--radius);padding:20px 24px;margin-bottom:28px;display:flex;gap:24px;flex-wrap:wrap;align-items:center">
+      <div style="flex:1;min-width:180px">
+        <div style="font-family:'Fraunces',serif;font-style:italic;font-size:0.8rem;color:var(--accent);margin-bottom:2px">Dataset loaded</div>
+        <div style="font-size:0.9rem;color:var(--text2)">Your listening history from <strong style="color:var(--text)">${range}</strong></div>
+      </div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap">
+        <div style="text-align:center"><div id="wb-music" style="font-family:'Fraunces',serif;font-size:1.5rem;font-weight:700;color:var(--accent2)">—</div><div style="font-size:0.7rem;color:var(--text3);margin-top:2px">music plays</div></div>
+        <div style="text-align:center"><div id="wb-pod" style="font-family:'Fraunces',serif;font-size:1.5rem;font-weight:700;color:var(--blue)">—</div><div style="font-size:0.7rem;color:var(--text3);margin-top:2px">podcast plays</div></div>
+        <div style="text-align:center"><div id="wb-hrs" style="font-family:'Fraunces',serif;font-size:1.5rem;font-weight:700;color:var(--purple)">—</div><div style="font-size:0.7rem;color:var(--text3);margin-top:2px">hours listened</div></div>
+      </div>
+    </div>` + el.innerHTML;
+    setTimeout(() => {
+      animateCount(document.getElementById('wb-music'), State.music.length);
+      animateCount(document.getElementById('wb-pod'),   State.podcasts.length);
+      animateCount(document.getElementById('wb-hrs'),   totalH);
+    }, 50);
+  }
+
   // Intentional = searchquery OR clickrow (explicit user selection)
   const INTENTIONAL = new Set(['searchquery','clickrow','playbtn']);
   const { showTypical, episodes } = buildPodcastData();
@@ -1323,7 +1349,8 @@ async function fetchPluggedInData() {
       const data = await res.json();
       const shows = (data.shows?.items || []).filter(Boolean);
       const matched = shows.filter(s => listenedShows.has(s.name?.toLowerCase().trim()));
-      const score = Math.round((matched.length / Math.max(shows.length, 1)) * 100);
+      // Score: matching 5 of the top 50 = 100; linear up to that point
+      const score = Math.min(Math.round(matched.length * 20), 100);
       results.push({ ...cat, shows, matched, score });
     } catch(e) {
       results.push({ ...cat, shows: [], matched: [], score: 0, error: true });
@@ -1398,7 +1425,8 @@ function renderOneHit() {
     const topTrack = Object.entries(tracks).sort((a,b) => b[1]-a[1])[0];
     const pct = topTrack[1] / total;
     if (pct < 0.7) continue;
-    results.push({ artist, topTrack: topTrack[0], topTrackPlays: topTrack[1], total, pct });
+    const uniqueTracks = Object.keys(tracks).length;
+    results.push({ artist, topTrack: topTrack[0], topTrackPlays: topTrack[1], total, pct, uniqueTracks });
   }
   results.sort((a,b) => b.pct - a.pct);
 
@@ -1416,14 +1444,19 @@ function renderOneHit() {
 
   results.slice(0,20).forEach((r, i) => {
     const pct = Math.round(r.pct * 100);
+    const onlySong = r.uniqueTracks === 1;
+    const subline = onlySong
+      ? `You've <em>only ever</em> played one song by them: <strong style="color:var(--accent2)">"${escHtml(r.topTrack)}"</strong>`
+      : `Out of ${r.uniqueTracks} songs played, you basically only play: <strong style="color:var(--accent2)">"${escHtml(r.topTrack)}"</strong>`;
     html += `<li>
       <div class="result-num">${i+1}</div>
       <div class="result-body">
         <div class="result-title">${escHtml(r.artist)}</div>
-        <div class="result-sub">You basically only play: <strong style="color:var(--accent2)">"${escHtml(r.topTrack)}"</strong></div>
+        <div class="result-sub" style="margin-bottom:6px">${subline}</div>
         <div class="result-stats">
           <span class="result-stat">Total plays: <strong>${r.total}</strong></span>
           <span class="result-stat">That one song: <strong>${r.topTrackPlays}×</strong></span>
+          <span class="result-stat">Unique tracks: <strong>${r.uniqueTracks}</strong></span>
           <span class="result-stat">Concentration: <strong>${pct}%</strong></span>
         </div>
         <div class="bar-wrap" style="margin-top:8px;max-width:300px">
@@ -1478,14 +1511,14 @@ function renderPeakObsession() {
     const track  = key.slice(sep + 2);
     const dates = trackDates[key].sort((a,b) => a-b);
 
-    // Find 4-week rolling window with most plays
+    // Find 4-week rolling window with most plays (O(n) sliding window)
     const WINDOW_MS = 28 * 86400000;
-    let peakCount = 0;
-    let peakDate = dates[0];
-    for (let i = 0; i < dates.length; i++) {
-      const windowEnd = new Date(dates[i].getTime() + WINDOW_MS);
-      const count = dates.filter(d => d >= dates[i] && d <= windowEnd).length;
-      if (count > peakCount) { peakCount = count; peakDate = dates[i]; }
+    const tsMs = dates.map(d => d.getTime());
+    let peakCount = 0, peakDate = dates[0], left = 0;
+    for (let right = 0; right < tsMs.length; right++) {
+      while (tsMs[right] - tsMs[left] > WINDOW_MS) left++;
+      const count = right - left + 1;
+      if (count > peakCount) { peakCount = count; peakDate = dates[left]; }
     }
 
     const recentPlays = dates.filter(d => d >= thirtyDaysAgo).length;
@@ -1709,32 +1742,53 @@ function renderBrain() {
     return h < 12 ? `${h}am` : `${h-12}pm`;
   }
 
-  function peakHourAll(grid) {
-    let best = -1, bestHr = 0;
-    for (let hr = 0; hr < 24; hr++) {
-      const total = [0,1,2,3,4,5,6].reduce((s,d) => s+(grid[`${d}-${hr}`]||0),0);
-      if (total > best) { best = total; bestHr = hr; }
+  // Build hourly totals across all days and weekdays-only
+  const hourTotals = (grid, dowRange) => Array.from({length:24}, (_, h) =>
+    dowRange.reduce((s, d) => s + (grid[`${d}-${h}`] || 0), 0)
+  );
+
+  const WKDAYS = [0,1,2,3,4], ALL = [0,1,2,3,4,5,6];
+  const mByHour = hourTotals(mGrid, ALL);
+  const pByHour = hourTotals(pGrid, ALL);
+  const mByHourWD = hourTotals(mGrid, WKDAYS);
+  const pByHourWD = hourTotals(pGrid, WKDAYS);
+
+  const peakOf = arr => arr.indexOf(Math.max(...arr));
+  const mPeak = peakOf(mByHour);
+  const pPeak = peakOf(pByHour);
+
+  // Find transition hours (podcast→music and music→podcast) on weekdays
+  let podToMusicHour = -1, musicToPodHour = -1;
+  if (State.music.length && State.podcasts.length) {
+    // scan for hour where mode flips from pod-dominant to music-dominant
+    const ratio = Array.from({length:24}, (_, h) => {
+      const t = (mByHourWD[h] || 0) + (pByHourWD[h] || 0);
+      return t > 0 ? (pByHourWD[h] || 0) / t : null;
+    });
+    for (let h = 1; h < 24; h++) {
+      if (ratio[h-1] !== null && ratio[h] !== null) {
+        if (ratio[h-1] > 0.5 && ratio[h] <= 0.5 && podToMusicHour < 0) podToMusicHour = h;
+        if (ratio[h-1] <= 0.5 && ratio[h] > 0.5 && musicToPodHour < 0) musicToPodHour = h;
+      }
     }
-    return bestHr;
-  }
-  function peakDow(grid) {
-    const totals = [0,1,2,3,4,5,6].map(d =>
-      Array.from({length:24},(_,h) => grid[`${d}-${h}`]||0).reduce((a,b)=>a+b,0)
-    );
-    const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-    return days[totals.indexOf(Math.max(...totals))];
   }
 
-  const mPeak = peakHourAll(mGrid);
-  const pPeak = peakHourAll(pGrid);
-  const mPeakDay = State.music.length ? peakDow(mGrid) : '';
-  const pPeakDay = State.podcasts.length ? peakDow(pGrid) : '';
-
+  // Compose the insight sentence
   const insightParts = [];
-  if (State.music.length) insightParts.push(`Music peaks around <strong style="color:var(--accent2)">${fmtHour(mPeak)}</strong> on <strong style="color:var(--accent2)">${mPeakDay}s</strong>.`);
-  if (State.podcasts.length) insightParts.push(`Podcast listening peaks around <strong style="color:var(--blue)">${fmtHour(pPeak)}</strong> on <strong style="color:var(--blue)">${pPeakDay}s</strong>.`);
-  if (State.music.length && State.podcasts.length && Math.abs(mPeak - pPeak) >= 3) {
-    insightParts.push(`You switch modes across the day.`);
+  if (State.music.length && State.podcasts.length) {
+    if (podToMusicHour > 0 && musicToPodHour > 0) {
+      insightParts.push(`On weekdays you switch to music around <strong style="color:var(--accent2)">${fmtHour(podToMusicHour)}</strong> and drift back to podcasts around <strong style="color:var(--blue)">${fmtHour(musicToPodHour)}</strong>.`);
+    } else if (podToMusicHour > 0) {
+      insightParts.push(`On weekdays you switch from podcasts to music around <strong style="color:var(--accent2)">${fmtHour(podToMusicHour)}</strong> and stay there.`);
+    } else if (musicToPodHour > 0) {
+      insightParts.push(`You listen to music until around <strong style="color:var(--blue)">${fmtHour(musicToPodHour)}</strong> on weekdays, then switch to podcasts.`);
+    } else {
+      insightParts.push(`Music peaks at <strong style="color:var(--accent2)">${fmtHour(mPeak)}</strong>, podcasts at <strong style="color:var(--blue)">${fmtHour(pPeak)}</strong>.`);
+    }
+  } else if (State.music.length) {
+    insightParts.push(`Your music peaks around <strong style="color:var(--accent2)">${fmtHour(mPeak)}</strong>.`);
+  } else if (State.podcasts.length) {
+    insightParts.push(`Your podcast listening peaks around <strong style="color:var(--blue)">${fmtHour(pPeak)}</strong>.`);
   }
 
   el.innerHTML = `
