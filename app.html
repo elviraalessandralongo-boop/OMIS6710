@@ -1282,9 +1282,9 @@ function renderBinge(windowIdx = 3) {
   }
 
   const sorted = [...sessions].sort((a,b) => {
-    const msA = a.reduce((s,r) => s + (r.ms_played||0), 0);
-    const msB = b.reduce((s,r) => s + (r.ms_played||0), 0);
-    return msB - msA;
+    const startA = new Date(a[0].ts).getTime() - (a[0].ms_played || 0);
+    const startB = new Date(b[0].ts).getTime() - (b[0].ms_played || 0);
+    return startB - startA;
   });
 
   let html = `
