@@ -1160,59 +1160,84 @@ function renderHooked() {
 /* ═══════════════════════════════════════════
    TOOL 3: BINGE SESSIONS
 ═══════════════════════════════════════════ */
-function renderBinge() {
+function computeBingeSessions(pods) {
+  const GAP_MS = 30 * 60 * 1000;
+  const result = [];
+  if (!pods.length) return result;
+  let current = [pods[0]];
+  for (let i = 1; i < pods.length; i++) {
+    const endPrev   = new Date(pods[i-1].ts).getTime();
+    const startCurr = new Date(pods[i].ts).getTime() - (pods[i].ms_played || 0);
+    if (startCurr - endPrev <= GAP_MS) {
+      current.push(pods[i]);
+    } else {
+      if (current.length >= 3) result.push([...current]);
+      current = [pods[i]];
+    }
+  }
+  if (current.length >= 3) result.push([...current]);
+  return result;
+}
+
+const BINGE_WINDOWS = [
+  { label: 'Last 30 days',  days: 30  },
+  { label: 'Last 3 months', days: 90  },
+  { label: 'Last year',     days: 365 },
+  { label: 'All time',      days: null },
+];
+
+function renderBinge(windowIdx = 3) {
   const el = document.getElementById('binge-content');
   if (!State.podcasts.length) {
     el.innerHTML = emptyState('🎙️','No podcast data','This tool needs podcast records.');
     return;
   }
 
-  // Cache sessions computation (expensive for large podcast datasets)
-  if (!State.computed._bingeSessions) {
-    const GAP_MS = 30 * 60 * 1000;
-    const result = [];
-    let current = [State.podcasts[0]];
-    for (let i = 1; i < State.podcasts.length; i++) {
-      const endPrev   = new Date(State.podcasts[i-1].ts).getTime();
-      const startCurr = new Date(State.podcasts[i].ts).getTime() - (State.podcasts[i].ms_played || 0);
-      if (startCurr - endPrev <= GAP_MS) {
-        current.push(State.podcasts[i]);
-      } else {
-        if (current.length >= 3) result.push([...current]);
-        current = [State.podcasts[i]];
-      }
-    }
-    if (current.length >= 3) result.push([...current]);
-    State.computed._bingeSessions = result;
-    State.computed.bingeSessions = result.length; // also cache count for personality
+  const win = BINGE_WINDOWS[windowIdx];
+  const cacheKey = '_bingeSessions_' + windowIdx;
+
+  if (!State.computed[cacheKey]) {
+    const pods = win.days
+      ? State.podcasts.filter(r => new Date(r.ts) >= new Date(Date.now() - win.days * 86400000))
+      : State.podcasts;
+    State.computed[cacheKey] = computeBingeSessions(pods);
   }
-  const sessions = State.computed._bingeSessions;
+  const sessions = State.computed[cacheKey];
+
+  // Cache all-time count for personality page
+  if (windowIdx === 3) State.computed.bingeSessions = sessions.length;
+  if (State.computed._bingeSessions === undefined) State.computed._bingeSessions = State.computed[cacheKey];
+
+  const toggleHtml = BINGE_WINDOWS.map((w, i) =>
+    `<button class="toggle-btn${i === windowIdx ? ' active' : ''}" onclick="renderBinge(${i})">${w.label}</button>`
+  ).join('');
 
   if (!sessions.length) {
-    el.innerHTML = emptyState('📚','No binge sessions found','You\'ve never played 3+ podcast episodes back-to-back within 30 minutes of each other. Impressive restraint.');
+    el.innerHTML = `<div class="toggle-row">${toggleHtml}</div>` +
+      emptyState('📚','No binge sessions found',`No 3+ episode back-to-back sessions in the ${win.label.toLowerCase()} window.`);
     return;
   }
 
-  sessions.sort((a,b) => {
+  const sorted = [...sessions].sort((a,b) => {
     const msA = a.reduce((s,r) => s + (r.ms_played||0), 0);
     const msB = b.reduce((s,r) => s + (r.ms_played||0), 0);
     return msB - msA;
   });
 
   let html = `
+    <div class="toggle-row">${toggleHtml}</div>
     <div class="stat-row">
       <div class="stat-box"><div class="stat-box-val" id="bi-count">0</div><div class="stat-box-label">Binge Sessions</div></div>
       <div class="stat-box"><div class="stat-box-val" id="bi-most">0</div><div class="stat-box-label">Most Episodes in One Go</div></div>
       <div class="stat-box"><div class="stat-box-val" id="bi-longest">—</div><div class="stat-box-label">Longest Session</div></div>
     </div>`;
 
-  const top = sessions.slice(0,15);
-  if (sessions.length > top.length) {
-    html += `<div style="margin-bottom:16px;font-size:0.75rem;color:var(--text3)">Showing top ${top.length} of ${fmtNum(sessions.length)} sessions by total listening time</div>`;
+  const top = sorted.slice(0,15);
+  if (sorted.length > top.length) {
+    html += `<div style="margin-bottom:16px;font-size:0.75rem;color:var(--text3)">Showing top ${top.length} of ${fmtNum(sorted.length)} sessions by total listening time</div>`;
   }
   top.forEach((session, i) => {
     const totalMs = session.reduce((s,r) => s + (r.ms_played||0), 0);
-    // ts is end-time; subtract first episode duration to get session start
     const sessionStartMs = new Date(session[0].ts).getTime() - (session[0].ms_played || 0);
     const date = new Date(sessionStartMs).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
     const shows = [...new Set(session.map(r => r.episode_show_name))];
@@ -1238,12 +1263,10 @@ function renderBinge() {
   });
 
   el.innerHTML = html;
-  animateCount(document.getElementById('bi-count'), sessions.length);
-  animateCount(document.getElementById('bi-most'), Math.max(...sessions.map(s=>s.length)));
-  const longestMs = Math.max(...sessions.map(s => s.reduce((t,r) => t+(r.ms_played||0),0)));
+  animateCount(document.getElementById('bi-count'), sorted.length);
+  animateCount(document.getElementById('bi-most'), Math.max(...sorted.map(s=>s.length)));
+  const longestMs = Math.max(...sorted.map(s => s.reduce((t,r) => t+(r.ms_played||0),0)));
   document.getElementById('bi-longest').textContent = fmtMs(longestMs);
-  // Store for personality
-  State.computed.bingeSessions = sessions.length;
 }
 
 /* ═══════════════════════════════════════════
