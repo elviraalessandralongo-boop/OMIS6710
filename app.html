@@ -1020,7 +1020,7 @@ function renderGuiltQueue() {
   let html = bannerHtml + `
     <div class="stat-row">
       <div class="stat-box"><div class="stat-box-val" id="gq-count">0</div><div class="stat-box-label">Abandoned Episodes</div></div>
-      <div class="stat-box"><div class="stat-box-val" id="gq-shows">0</div><div class="stat-box-label">Shows Affected</div></div>
+      <div class="stat-box"><div class="stat-box-val" id="gq-shows">0</div><div class="stat-box-label">Abandoned Podcasts</div></div>
       <div class="stat-box"><div class="stat-box-val" id="gq-avg">—</div><div class="stat-box-label">Avg Completion</div></div>
     </div>
     <div style="margin-bottom:4px;font-size:0.78rem;color:var(--text3);font-style:italic">
@@ -1107,7 +1107,7 @@ function renderHooked() {
   let html = `
     <div class="stat-row">
       <div class="stat-box"><div class="stat-box-val" id="hk-count">0</div><div class="stat-box-label">Surprise Finishes</div></div>
-      <div class="stat-box"><div class="stat-box-val" id="hk-shows">0</div><div class="stat-box-label">Shows</div></div>
+      <div class="stat-box"><div class="stat-box-val" id="hk-shows">0</div><div class="stat-box-label">Podcasts That Hooked You</div></div>
       <div class="stat-box"><div class="stat-box-val" id="hk-avg">—</div><div class="stat-box-label">Avg Completion</div></div>
     </div>
     ${results.length > SHOW_MAX ? `<div style="margin-bottom:16px;font-size:0.75rem;color:var(--text3)">Showing top ${SHOW_MAX} of ${fmtNum(results.length)}</div>` : ''}
