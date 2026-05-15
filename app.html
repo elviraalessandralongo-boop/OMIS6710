@@ -3438,6 +3438,27 @@ function switchBrainMode(mode) {
 }
 
 /* ═══════════════════════════════════════════
+   PERSONALITY REACT
+═══════════════════════════════════════════ */
+function personalityReact(agreed) {
+  const el = document.getElementById('personality-react');
+  if (!el) return;
+  el.style.transition = 'opacity 0.15s ease';
+  el.style.opacity = '0';
+  setTimeout(() => {
+    if (agreed) {
+      el.innerHTML = '<div style="font-size:0.85rem;color:var(--accent2);font-style:italic">Thought so. Your data doesn\'t lie.</div>';
+    } else {
+      el.innerHTML = `
+        <div style="font-size:0.85rem;color:var(--text3);font-style:italic">Fair enough. Maybe check the tools and see what you'd call yourself instead.</div>
+        <div style="margin-top:10px"><a href="#" onclick="document.querySelector('.nav-item.active')?.focus();document.getElementById('sidebar').scrollIntoView({behavior:'smooth'});return false;" style="font-size:0.75rem;color:var(--text3);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--border)">Go back to the tools →</a></div>`;
+    }
+    el.style.transition = 'opacity 0.3s ease';
+    el.style.opacity = '1';
+  }, 160);
+}
+
+/* ═══════════════════════════════════════════
    PERSONALITY SHARE CARD
 ═══════════════════════════════════════════ */
 function downloadPersonalityCard() {
@@ -3836,6 +3857,13 @@ function renderPersonality() {
         ${supportingHtml}
       </div>
       <div id="personality-provocation" style="margin-top:32px;font-family:'Fraunces',serif;font-size:1.05rem;font-style:italic;color:${color};opacity:0;transition:opacity 0.6s ease">${provocation}</div>
+      <div id="personality-react" style="margin-top:28px;opacity:0;transition:opacity 0.3s ease">
+        <div style="font-size:0.78rem;color:var(--text3);margin-bottom:12px">Does this sound like you?</div>
+        <div style="display:flex;gap:10px;justify-content:center">
+          <button onclick="personalityReact(true)" style="background:none;border:1px solid var(--border);color:var(--text2);font-size:0.78rem;font-family:inherit;padding:8px 20px;border-radius:20px;cursor:pointer;transition:border-color 0.15s,color 0.15s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">Pretty much</button>
+          <button onclick="personalityReact(false)" style="background:none;border:1px solid var(--border);color:var(--text2);font-size:0.78rem;font-family:inherit;padding:8px 20px;border-radius:20px;cursor:pointer;transition:border-color 0.15s,color 0.15s" onmouseover="this.style.borderColor='var(--border)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">Not even close</button>
+        </div>
+      </div>
     </div>
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:16px">
       <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);margin-bottom:16px">The evidence</div>
@@ -3905,6 +3933,10 @@ function renderPersonality() {
               setTimeout(() => {
                 const prov = document.getElementById('personality-provocation');
                 if (prov) prov.style.opacity = '1';
+                setTimeout(() => {
+                  const react = document.getElementById('personality-react');
+                  if (react) react.style.opacity = '1';
+                }, 400);
               }, 400);
             }, 400);
           }, 500);
@@ -3915,7 +3947,7 @@ function renderPersonality() {
     el.innerHTML = fullContentHtml;
     // Instant show without animation on re-visit
     setTimeout(() => {
-      ['personality-label-reveal','personality-subhead','personality-supporting','personality-provocation'].forEach(id => {
+      ['personality-label-reveal','personality-subhead','personality-supporting','personality-provocation','personality-react'].forEach(id => {
         const el2 = document.getElementById(id);
         if (el2) el2.style.opacity = '1';
       });
