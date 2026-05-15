@@ -1830,16 +1830,18 @@ function renderPodBubble() {
 
   const catRows = categories.map(cat => {
     const pct = Math.round(cat.ms / totalMs * 100);
+    const pctLabel = pct === 0 ? '<1%' : pct + '%';
+    const barWidth = pct === 0 ? 0.5 : pct;
     const hrs = Math.round(cat.ms / 3600000 * 10) / 10;
     const topShows = cat.shows.slice(0,3).map(s => escHtml(s.show)).join(', ');
     return `<div style="margin-bottom:18px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
         <span style="font-size:1.1rem">${cat.icon}</span>
         <div style="font-size:0.88rem;font-weight:600;color:var(--text)">${cat.name}</div>
-        <div style="margin-left:auto;font-family:'Fraunces',serif;font-size:1.1rem;font-weight:700;color:${cat.color}">${pct}%</div>
+        <div style="margin-left:auto;font-family:'Fraunces',serif;font-size:1.1rem;font-weight:700;color:${cat.color}">${pctLabel}</div>
       </div>
       <div style="background:var(--bg3);border-radius:4px;height:6px;margin-bottom:6px">
-        <div style="width:${pct}%;height:100%;border-radius:4px;background:${cat.color};transition:width 0.6s ease"></div>
+        <div style="width:${barWidth}%;height:100%;border-radius:4px;background:${cat.color};transition:width 0.6s ease"></div>
       </div>
       <div style="font-size:0.72rem;color:var(--text3)">${hrs}h · ${cat.shows.length} show${cat.shows.length !== 1 ? 's' : ''} · ${topShows}</div>
     </div>`;
