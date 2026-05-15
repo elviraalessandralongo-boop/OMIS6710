@@ -2056,12 +2056,8 @@ function renderHooked() {
     return;
   }
 
-  const SHOW_MAX = 20;
-  const top = results.slice(0, SHOW_MAX);
   const hkShows = new Set(results.map(r => r.show)).size;
-  const hkAvgComp = results.reduce((s,r) => s + r.completionRate, 0) / results.length;
-  // Count shows where first play was autoplay AND completion > 80%
-  const autoHookedShows = new Set(results.filter(r => r.completionRate >= 0.8 && !['searchquery','clickrow','playbtn'].includes(r.firstStart)).map(r => r.show)).size;
+  const autoHookedShows = new Set(results.filter(r => r.completionRate >= 0.8 && !INTENTIONAL.has(r.firstStart)).map(r => r.show)).size;
   const hookHero = autoHookedShows === 0
     ? `You found every single one of your shows deliberately — nothing slipped through unless you chose it.`
     : `<em>${autoHookedShows} of your favourite shows found you</em> — you didn't find them. They autoplayed, and you stayed.`;
@@ -2084,9 +2080,75 @@ function renderHooked() {
     unknown:     'unknown',
   }[r] || r || 'Spotify autoplayed it');
 
-  const INTENTIONAL_SET = new Set(['searchquery','clickrow','playbtn']);
+  // ── Contrast Stat: intentional vs autoplay completion rates ──
+  let intentTotal = 0, intentFinished = 0, autoTotal = 0, autoFinished = 0;
+  for (const [, ep] of Object.entries(episodes)) {
+    const cr = episodeCompletion(ep, showTypical);
+    if (cr === null) continue;
+    const intentCount = ep.plays.filter(r => INTENTIONAL.has(r.reason_start)).length;
+    if (intentCount >= ep.plays.length - intentCount) {
+      intentTotal++; if (cr >= 0.8) intentFinished++;
+    } else {
+      autoTotal++; if (cr >= 0.8) autoFinished++;
+    }
+  }
+  const intentPct = intentTotal > 0 ? Math.round(intentFinished / intentTotal * 100) : null;
+  const autoPct   = autoTotal  > 0 ? Math.round(autoFinished  / autoTotal  * 100) : null;
+  const contrastVerdict = intentPct === null || autoPct === null ? null
+    : autoPct > intentPct + 10
+    ? "You finish more of what you didn't choose than what you did. The algorithm knows you better than you know yourself."
+    : intentPct > autoPct + 10
+    ? "You know what you like and you follow through. The algorithm occasionally gets lucky — but you're mostly in control."
+    : "You're equally committed whether you chose it or not. Once you start, you finish.";
+
+  // ── Gateway Show: accidental discovery that led to most deliberate listening ──
+  const showPlays = {};
+  for (const r of State.podcasts) {
+    const show = r.episode_show_name;
+    if (!show) continue;
+    if (!showPlays[show]) showPlays[show] = [];
+    showPlays[show].push(r);
+  }
+  let gateway = null;
+  let gatewayBest = 0;
+  for (const [show, plays] of Object.entries(showPlays)) {
+    plays.sort((a, b) => new Date(a.ts) - new Date(b.ts));
+    if (INTENTIONAL.has(plays[0].reason_start)) continue; // first play was deliberate
+    const firstTs = new Date(plays[0].ts);
+    const laterIntentional = plays.filter(r => new Date(r.ts) > firstTs && INTENTIONAL.has(r.reason_start)).length;
+    if (laterIntentional > gatewayBest) {
+      gatewayBest = laterIntentional;
+      gateway = { show, firstTs, laterIntentional };
+    }
+  }
+  const gatewayDateStr = gateway ? gateway.firstTs.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : null;
+
+  // ── Build HTML ──
+  const contrastHtml = (intentPct !== null && autoPct !== null) ? `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:28px 32px;margin-bottom:32px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:20px">
+        <div style="text-align:center">
+          <div style="font-family:'Fraunces',serif;font-size:2.4rem;font-weight:700;color:var(--text)">${intentPct}%</div>
+          <div style="font-size:0.78rem;color:var(--text3);margin-top:6px;line-height:1.4">of what you deliberately choose, you finish</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-family:'Fraunces',serif;font-size:2.4rem;font-weight:700;color:var(--accent2)">${autoPct}%</div>
+          <div style="font-size:0.78rem;color:var(--text3);margin-top:6px;line-height:1.4">of what just comes on, you finish</div>
+        </div>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:16px;font-size:0.88rem;color:var(--text2);line-height:1.5;font-style:italic">${contrastVerdict}</div>
+    </div>` : '';
+
+  const gatewayHtml = gateway ? `
+    <div style="background:var(--accent-dim);border:1px solid rgba(29,185,84,0.2);border-radius:var(--radius);padding:24px 28px;margin-bottom:32px">
+      <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);margin-bottom:10px">Your Gateway Show</div>
+      <div style="font-size:0.95rem;color:var(--text);line-height:1.55">Your biggest accidental discovery was <strong>${escHtml(gateway.show)}</strong>. You stumbled into it on ${gatewayDateStr}. Since then you've deliberately listened <strong>${gateway.laterIntentional}</strong> more time${gateway.laterIntentional !== 1 ? 's' : ''}.</div>
+    </div>` : '';
+
   let html = `
     ${heroStatement(hookHero)}
+    ${contrastHtml}
+    ${gatewayHtml}
     <div class="evidence-section">
       <div class="evidence-label">The evidence</div>
       <ul class="result-list">`;
@@ -2095,16 +2157,14 @@ function renderHooked() {
     const pct = Math.round(ep.completionRate * 100);
     const how = reasonLabel(ep.firstStart);
     const firstDate = ep.firstTs ? new Date(ep.firstTs).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : null;
-    const wasAutoplay = !INTENTIONAL_SET.has(ep.firstStart);
-    const accidentalNote = wasAutoplay && firstDate
-      ? `<div style="font-size:0.75rem;color:var(--text3);font-style:italic;margin-bottom:4px">First played ${firstDate}. Never searched for it. Couldn't stop.</div>`
-      : '';
+    const wasAutoplay = !INTENTIONAL.has(ep.firstStart);
     const hiddenCls = i >= 5 ? ' class="show-more-item"' : '';
     html += `<li${hiddenCls}>
       <div class="result-num">${i+1}</div>
       <div class="result-body">
         <div class="result-title">${escHtml(ep.show)}</div>
-        <div style="display:flex;align-items:center;gap:12px;margin-top:4px">
+        ${wasAutoplay && firstDate ? `<div style="font-size:0.75rem;color:var(--text3);margin-top:4px">First played ${firstDate}. Came on automatically. You finished it anyway.</div>` : ''}
+        <div style="display:flex;align-items:center;gap:12px;margin-top:6px">
           <span style="font-size:0.82rem;color:var(--text2)">~${pct}% complete</span>
           <div class="bar-wrap" style="flex:1;max-width:180px;margin:0">
             <div class="bar-fill bar-green" data-width="${pct}%" style="width:0"></div>
@@ -2113,7 +2173,6 @@ function renderHooked() {
         <button class="item-details-toggle" onclick="toggleDetails(this)" aria-expanded="false">+ details</button>
         <div class="item-details">
           <div class="result-sub" style="margin-bottom:8px">${escHtml(ep.name)}</div>
-          ${accidentalNote}
           <div class="result-stats">
             <span class="result-stat">First played: <strong>${firstDate || '—'}</strong></span>
             <span class="result-stat">How it started: <strong>${how}</strong></span>
