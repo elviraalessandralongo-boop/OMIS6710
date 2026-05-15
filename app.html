@@ -3308,30 +3308,47 @@ function renderHome() {
     }
   }
 
+  // ── Biggest listening day ──
+  let biggestDay = null, biggestDayH = 0;
+  if (State.music.length || State.podcasts.length) {
+    const dayMs = {};
+    for (const r of [...State.music, ...State.podcasts]) {
+      const d = new Date(r.ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      dayMs[d] = (dayMs[d] || 0) + (r.ms_played || 0);
+    }
+    const [bd, bms] = Object.entries(dayMs).sort((a,b) => b[1]-a[1])[0] || [];
+    if (bd && bms) { biggestDay = bd; biggestDayH = Math.round(bms / 3600000 * 10) / 10; }
+  }
+
   // ── Stat cards (human language) ──
   const statCards = [];
   if (totalH > 0) {
     statCards.push({
       num: fmtNum(totalH),
-      label: `hours of your life, <strong>soundtrack included</strong>${range ? ` — from ${range}` : ''}`,
+      label: `hours of your life, <strong>soundtrack included</strong>`,
     });
   }
   if (State.music.length && uniqueArtists > 0) {
     statCards.push({
       num: fmtNum(uniqueArtists),
-      label: `artists you've actually <strong>spent time with</strong>`,
+      label: `artists have <strong>soundtracked your life</strong> so far`,
     });
   }
   if (topTrack && topTrackPlays > 0) {
     statCards.push({
       num: fmtNum(topTrackPlays) + '×',
-      label: `plays of your most-repeated track — <strong>${escHtml(topTrack)}</strong>`,
+      label: `One song. <strong>${fmtNum(topTrackPlays)} times.</strong> You know the one.`,
     });
   }
   if (State.podcasts.length && uniqueShows > 0) {
     statCards.push({
       num: fmtNum(uniqueShows),
       label: `podcast shows that got <strong>at least one episode</strong> of your time`,
+    });
+  } else if (biggestDay && biggestDayH >= 1) {
+    statCards.push({
+      num: biggestDayH + 'h',
+      label: `Your biggest listening day was <strong>${biggestDay}</strong> — ${biggestDayH} hours straight.`,
     });
   } else if (activeDayName && !statCards.find(c => c.label.includes('day'))) {
     statCards.push({
@@ -3359,13 +3376,52 @@ function renderHome() {
       <div class="start-here-arrow">›</div>
     </div>` : '';
 
+  // ── Narrative thread (conditional) ──
+  let narrativeText = '';
+  if (State.podcasts.length && totalH > 0) {
+    // Compute pod completion for narrative choice
+    const { showTypical: nt_showTypical, episodes: nt_episodes } = buildPodcastData();
+    const nt_rates = Object.values(nt_episodes).map(ep => episodeCompletion(ep, nt_showTypical)).filter(r => r !== null);
+    const nt_avg = nt_rates.length ? nt_rates.reduce((a,b) => a+b, 0) / nt_rates.length : null;
+
+    // Compute top-20 concentration for narrative
+    let nt_top20Pct = null;
+    if (State.music.length) {
+      const nt_tc = {};
+      for (const r of State.music) { const k = r.master_metadata_track_name; if (k) nt_tc[k] = (nt_tc[k]||0)+1; }
+      const nt_s = Object.values(nt_tc).sort((a,b)=>b-a);
+      nt_top20Pct = nt_s.slice(0,20).reduce((a,b)=>a+b,0) / State.music.length;
+    }
+
+    const nt_binge = State.computed.bingeSessions || 0;
+
+    if (nt_avg !== null && nt_avg < 0.5) {
+      narrativeText = `You collect podcasts like unread books. The tools below know exactly which ones.`;
+    } else if (nt_top20Pct !== null && nt_top20Pct > 0.6) {
+      narrativeText = `You've found your sound — and you're loyal to it. Maybe too loyal.`;
+    } else if (nt_binge >= 5) {
+      narrativeText = `When something grabs you, it really grabs you. You'll see what we mean.`;
+    } else {
+      const nyrs = (yr0 && yr1) ? (parseInt(yr1) - parseInt(yr0) + 1) : 1;
+      narrativeText = `${nyrs} year${nyrs !== 1 ? 's' : ''} of listening. Ten ways to see what it reveals.`;
+    }
+  } else if (State.music.length && totalH > 0) {
+    if (topTrack && topTrackPlays > 20) {
+      narrativeText = `You've found your sound — and you're loyal to it. Maybe too loyal.`;
+    } else {
+      const nyrs = (yr0 && yr1) ? (parseInt(yr1) - parseInt(yr0) + 1) : 1;
+      narrativeText = `${nyrs} year${nyrs !== 1 ? 's' : ''} of listening. Ten ways to see what it reveals.`;
+    }
+  }
+
   const contentHtml = `
     <div class="home-content-wrap">
-      <div style="font-family:'Fraunces',serif;font-size:2.1rem;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:32px">
-        Your data is in.<br><span style="color:var(--accent2)">Here's what it says about you.</span>
+      <div style="font-family:'Fraunces',serif;font-size:2.1rem;font-weight:700;color:var(--text);line-height:1.25;margin-bottom:32px">
+        You've given <span style="color:var(--accent2)">${fmtNum(totalH)} hours</span> of your life to music and podcasts${yr0 ? ` since ${yr0}` : ''}.<br>
+        <span style="font-size:1.45rem;font-weight:300;font-style:italic;color:var(--text2)">Here's what that actually says about you.</span>
       </div>
       <div class="home-stats-grid">${statsHtml}</div>
-      ${narrative ? `<div class="home-narrative">${narrative}</div>` : ''}
+      ${narrativeText ? `<div class="home-narrative">${narrativeText}</div>` : ''}
       ${startHereHtml}
       <div class="trust-line">
         <span style="font-size:0.85rem">🔒</span>
