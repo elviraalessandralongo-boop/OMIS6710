@@ -2505,9 +2505,6 @@ function renderOneHit() {
     : 'You know what you like. One perfect song is enough — the rest of a discography is optional.';
   let html = `
     ${heroStatement(`You have <em>${results.length} artists</em> you've played dozens of times — but only ever one song. You're not a fan. <em>You're obsessed with a moment.</em>`)}
-    <div class="stat-row">
-      <div class="stat-box"><div class="stat-box-val" id="oh-top">—</div><div class="stat-box-label">Highest Concentration</div></div>
-    </div>
     ${results.length > OHW_MAX ? `<div style="margin-bottom:16px;font-size:0.75rem;color:var(--text3)">Showing top ${OHW_MAX} of ${fmtNum(results.length)}</div>` : ''}
     <ul class="result-list">`;
 
@@ -2528,7 +2525,6 @@ function renderOneHit() {
         <div class="result-stats">
           <span class="result-stat">Total artist plays: <strong>${r.total}</strong></span>
           <span class="result-stat">This song: <strong>${r.topTrackPlays}×</strong></span>
-          <span class="result-stat">Concentration: <strong>${pct}%</strong></span>
         </div>
         <div class="bar-wrap" style="margin-top:8px;max-width:300px">
           <div class="bar-fill bar-amber" data-width="${pct}%" style="width:0"></div>
