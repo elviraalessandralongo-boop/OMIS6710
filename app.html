@@ -3194,6 +3194,8 @@ function renderOneHit() {
   const artistPlays = {};
   const artistTracks = {};
   const artistLastTs = {};
+  const artistTrackDates = {};
+  const trackDatesAll = {};
   for (const r of State.music) {
     const artist = r.master_metadata_album_artist_name;
     const track = r.master_metadata_track_name;
@@ -3203,6 +3205,12 @@ function renderOneHit() {
     artistTracks[artist][track] = (artistTracks[artist][track] || 0) + 1;
     const ts = new Date(r.ts).getTime();
     if (!artistLastTs[artist] || ts > artistLastTs[artist]) artistLastTs[artist] = ts;
+    if (!artistTrackDates[artist]) artistTrackDates[artist] = {};
+    if (!artistTrackDates[artist][track]) artistTrackDates[artist][track] = [];
+    artistTrackDates[artist][track].push(new Date(r.ts));
+    const tkey = `${artist}||${track}`;
+    if (!trackDatesAll[tkey]) trackDatesAll[tkey] = { artist, track, dates: [] };
+    trackDatesAll[tkey].dates.push(new Date(r.ts));
   }
 
   const results = [];
@@ -3222,10 +3230,7 @@ function renderOneHit() {
     return;
   }
 
-  const OHW_MAX = 20;
   const topByPct = [...results].sort((a,b) => b.pct - a.pct)[0];
-  const ohTopPct = Math.round(topByPct.pct * 100);
-  const justOneTrack = results.filter(r => r.uniqueTracks === 1).length;
   const topByPlays = [...results].sort((a,b) => b.topTrackPlays - a.topTrackPlays)[0];
   const ohVerdict = results.length > 10
     ? 'You fall for songs, not artists. There\'s nothing wrong with that.'
@@ -3234,6 +3239,22 @@ function renderOneHit() {
     : results.length < 5
     ? 'You mostly go deep on artists. When you find someone, you explore.'
     : 'You know what you like. One perfect song is enough — the rest of a discography is optional.';
+
+  function peakYearLabel(dates) {
+    if (!dates || dates.length < 3) return null;
+    const sorted = [...dates].sort((a,b) => a-b);
+    const spanDays = (sorted[sorted.length-1] - sorted[0]) / 86400000;
+    if (spanDays <= 31) {
+      const mo = sorted[0].toLocaleString('default', { month: 'long', year: 'numeric' });
+      return `This was a ${mo} moment. Intense and brief.`;
+    }
+    const yearCounts = {};
+    for (const d of dates) yearCounts[d.getFullYear()] = (yearCounts[d.getFullYear()] || 0) + 1;
+    const topYear = Object.entries(yearCounts).sort((a,b) => b[1]-a[1])[0];
+    if (topYear[1] / dates.length >= 0.9) return `This was a ${topYear[0]} thing.`;
+    return 'This one has lasted.';
+  }
+
   let html = `
     ${heroStatement(`You have <em>${results.length} artists</em> you've played dozens of times — but only ever one song. You're not a fan. <em>You're obsessed with a moment.</em>`)}
     <div class="evidence-section">
@@ -3243,14 +3264,20 @@ function renderOneHit() {
   results.forEach((r, i) => {
     const pct = Math.round(r.pct * 100);
     const onlySong = r.uniqueTracks === 1;
-    const obsessionNote = `${fmtNum(r.topTrackPlays)} plays. Always "${escHtml(r.topTrack)}". Never anything else.`;
+    const otherPlays = r.total - r.topTrackPlays;
+    const reframeLine = otherPlays > 0
+      ? `You've played &ldquo;${escHtml(r.topTrack)}&rdquo; ${fmtNum(r.topTrackPlays)} times. You've played everything else by ${escHtml(r.artist)} a combined ${fmtNum(otherPlays)} time${otherPlays !== 1 ? 's' : ''}. You don't like ${escHtml(r.artist)}. You like that one moment.`
+      : `You've played &ldquo;${escHtml(r.topTrack)}&rdquo; ${fmtNum(r.topTrackPlays)} times. You've never touched another ${escHtml(r.artist)} song. You don't like ${escHtml(r.artist)}. You like that one moment.`;
+    const trackDates = artistTrackDates[r.artist]?.[r.topTrack] || [];
+    const peakLabel = peakYearLabel(trackDates);
     const hiddenCls = i >= 5 ? ' class="show-more-item"' : '';
     html += `<li${hiddenCls}>
       <div class="result-num">${i+1}</div>
       <div class="result-body">
         <div class="result-title">${escHtml(r.topTrack)}</div>
         <div class="result-sub">${escHtml(r.artist)}</div>
-        <div style="font-size:0.8rem;color:var(--text2);margin-top:4px;font-style:italic">${obsessionNote}</div>
+        <div style="font-size:0.8rem;color:var(--text2);margin-top:6px;line-height:1.55">${reframeLine}</div>
+        ${peakLabel ? `<div style="font-size:0.75rem;color:var(--text3);font-style:italic;margin-top:5px">${peakLabel}</div>` : ''}
         <button class="item-details-toggle" onclick="toggleDetails(this)" aria-expanded="false">+ details</button>
         <div class="item-details">
           <div class="result-stats">
@@ -3269,7 +3296,74 @@ function renderOneHit() {
   html += '</ul>';
   if (results.length > 5) html += `<button class="show-more-btn" onclick="revealMore(this)">Show ${results.length - 5} more</button>`;
   html += '</div>';
+
+  // Depth Comparison — artists user has actually explored (not on OHW list)
+  const ohwArtistSet = new Set(results.map(r => r.artist));
+  const exploredArtists = Object.entries(artistTracks)
+    .filter(([artist]) => !ohwArtistSet.has(artist))
+    .map(([artist, tracks]) => ({ artist, uniqueTracks: Object.keys(tracks).length, plays: artistPlays[artist] }))
+    .filter(a => a.plays >= 10)
+    .sort((a,b) => b.uniqueTracks - a.uniqueTracks)
+    .slice(0, 3);
+  if (exploredArtists.length > 0) {
+    const depthLines = exploredArtists.map(a =>
+      `<div style="margin-bottom:10px"><span style="color:var(--text);font-weight:600">${escHtml(a.artist)}</span> &mdash; <span style="color:var(--accent2)">${a.uniqueTracks} different songs</span> <span style="font-size:0.78rem;color:var(--text3)">You actually know them.</span></div>`
+    ).join('');
+    const depthVerdict = exploredArtists[0].uniqueTracks > 10
+      ? `You're not shallow — you go deep when you commit. The one-hit-wonder list is the exception, not the rule.`
+      : `Even your deepest dives are selective. You're a curator, not a completionist.`;
+    html += `
+    <div class="evidence-section">
+      <div class="evidence-label">The Depth Comparison</div>
+      <div style="font-size:0.8rem;color:var(--text3);margin-bottom:16px">The artists you've actually explored:</div>
+      ${depthLines}
+      <div style="margin-top:16px;font-family:'Fraunces',serif;font-size:1rem;font-weight:700;color:var(--text);line-height:1.4">${depthVerdict}</div>
+    </div>`;
+  }
+
   html += toolVerdict(ohVerdict);
+
+  // Hidden Constant — track with most consistent, long-spanning play history
+  let hiddenConstant = null, hiddenScore = -Infinity;
+  for (const [, info] of Object.entries(trackDatesAll)) {
+    if (info.dates.length < 10) continue;
+    const sorted = [...info.dates].sort((a,b) => a-b);
+    const spanMonths = (sorted[sorted.length-1] - sorted[0]) / (30 * 86400000);
+    if (spanMonths < 3) continue;
+    const monthMap = {};
+    for (const d of sorted) {
+      const mk = `${d.getFullYear()}-${String(d.getMonth()).padStart(2,'0')}`;
+      monthMap[mk] = (monthMap[mk] || 0) + 1;
+    }
+    const counts = Object.values(monthMap);
+    const mean = counts.reduce((a,b) => a+b, 0) / counts.length;
+    const variance = counts.reduce((a,b) => a + Math.pow(b - mean, 2), 0) / counts.length;
+    const cv = Math.sqrt(variance) / (mean || 1);
+    const score = spanMonths / (cv + 0.1);
+    if (score > hiddenScore) {
+      hiddenScore = score;
+      hiddenConstant = { artist: info.artist, track: info.track, firstDate: sorted[0], plays: info.dates.length };
+    }
+  }
+
+  if (hiddenConstant) {
+    const firstDateStr = hiddenConstant.firstDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+    html += `
+    <div class="evidence-section" style="margin-top:52px;padding-top:36px;border-top:1px solid var(--border)">
+      <div class="evidence-label">The Hidden Constant</div>
+      <div style="font-family:'Fraunces',serif;font-size:clamp(1.3rem,3vw,1.8rem);font-weight:700;line-height:1.25;color:var(--text);max-width:520px;margin:24px 0 10px">
+        &ldquo;${escHtml(hiddenConstant.track)}&rdquo;
+      </div>
+      <div style="font-size:0.9rem;color:var(--text2);margin-bottom:24px">${escHtml(hiddenConstant.artist)}</div>
+      <div style="font-size:1rem;color:var(--text);line-height:1.75;max-width:480px">
+        This song has been in your life since <strong>${firstDateStr}</strong>. You've never obsessed over it. You've just always come back to it.
+      </div>
+      <div style="margin-top:16px;font-family:'Fraunces',serif;font-size:1.15rem;font-style:italic;color:var(--accent2);line-height:1.4">
+        That might be your most honest favourite.
+      </div>
+    </div>`;
+  }
+
   el.innerHTML = html;
   animateBars(el);
 }
