@@ -1907,15 +1907,37 @@ function renderGuiltQueue(windowIdx = 1) {
     return s + typLen * (1 - r.completionRate);
   }, 0);
   const owedHours = Math.round(owedMs / 3600000 * 10) / 10;
+  const costComparison = owedHours < 5 ? "a long flight's worth"
+    : owedHours < 10 ? 'a full work day'
+    : owedHours < 20 ? 'a long weekend'
+    : 'almost a full work week';
+
+  // Abandonment pattern: where in episodes do they typically stop?
+  const earlyAbandons = results.filter(r => r.completionRate < 0.25).length;
+  const lateAbandons  = results.filter(r => r.completionRate >= 0.75).length;
+  const midAbandons   = results.length - earlyAbandons - lateAbandons;
+  const patternInsight = earlyAbandons >= midAbandons && earlyAbandons >= lateAbandons
+    ? 'You give up fast. Most of these were abandoned in the first quarter.'
+    : lateAbandons >= earlyAbandons && lateAbandons >= midAbandons
+    ? 'You almost always finish. These abandonments are the exception, not the rule.'
+    : 'You get halfway and lose interest. The commitment is there — just not the follow-through.';
+
   const topItemComp = results[0]?.completionRate || 0;
   const gqVerdict = topItemComp > 0.8
     ? 'You were so close on some of these. One more commute would do it.'
     : avgComp < 0.2
     ? 'You\'re not finishing these. You\'re collecting them.'
     : 'Your intentions are great. Your follow-through, less so.';
+
   let html = `
     <div class="toggle-row">${toggleHtml}</div>
     ${heroStatement(`You owe <em>${owedHours} hours</em> of listening you promised yourself you'd do — across <em>${shows} podcast${shows !== 1 ? 's' : ''}</em>, all started and quietly abandoned.`)}
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:28px 32px;margin-bottom:40px">
+      <div style="font-family:'Fraunces',serif;font-size:1.6rem;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:8px">
+        You've left <span style="color:var(--accent2)">${owedHours} hours</span> of content you deliberately chose, unfinished.
+      </div>
+      <div style="font-size:0.88rem;color:var(--text3)">That's ${costComparison}.</div>
+    </div>
     <div class="evidence-section">
       <div class="evidence-label">The evidence</div>
       <ul class="result-list">`;
@@ -1923,9 +1945,23 @@ function renderGuiltQueue(windowIdx = 1) {
   results.forEach((ep, i) => {
     const pct = Math.round(ep.completionRate * 100);
     const lastTried = ep.lastIntentTs.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-    const triedAgainTag = ep.intentPlays > 1
-      ? `<div style="font-size:0.72rem;color:var(--amber);font-style:italic;margin-top:6px">You tried again. Still didn't finish.</div>`
+    const daysAgo = Math.floor((Date.now() - ep.lastIntentTs.getTime()) / 86400000);
+    const daysAgoLabel = daysAgo === 0 ? 'today' : daysAgo === 1 ? '1 day ago' : `${daysAgo} days ago`;
+    const letItGoTag = daysAgo > 365
+      ? `<div style="font-size:0.72rem;color:var(--text3);font-style:italic;margin-top:4px">You're not finishing this. Let it go.</div>`
       : '';
+    const triedAgainTag = ep.intentPlays > 1
+      ? `<div style="font-size:0.72rem;color:var(--amber);font-style:italic;margin-top:4px">You tried again. Still didn't finish.</div>`
+      : '';
+
+    // "So close" accusation tag
+    const typMs = showTypical[ep.show] || null;
+    const minsLeft = typMs ? Math.round(typMs * (1 - ep.completionRate) / 60000) : null;
+    const minsIn   = typMs ? Math.round(typMs * ep.completionRate / 60000) : null;
+    const soCloseTag = ep.completionRate > 0.85 && minsLeft !== null
+      ? `<div style="display:inline-block;margin-top:8px;padding:5px 10px;background:rgba(224,160,80,0.12);border:1px solid rgba(224,160,80,0.3);border-radius:6px;font-size:0.72rem;color:var(--amber);line-height:1.4">You were <strong>${minsLeft} minute${minsLeft !== 1 ? 's' : ''}</strong> from the end. You stopped with ${minsLeft} minutes left. Why?</div>`
+      : '';
+
     const hiddenCls = i >= 5 ? ' class="show-more-item"' : '';
     html += `<li${hiddenCls}>
       <div class="result-num">${i+1}</div>
@@ -1937,24 +1973,42 @@ function renderGuiltQueue(windowIdx = 1) {
             <div class="bar-fill bar-red" data-width="${pct}%" style="width:0"></div>
           </div>
         </div>
-        <button class="item-details-toggle" onclick="toggleDetails(this)" aria-expanded="false">+ details</button>
+        <div style="font-size:0.75rem;color:var(--text3);margin-top:6px">Abandoned ${daysAgoLabel}</div>
+        ${letItGoTag}
+        ${soCloseTag}
+        <button class="item-details-toggle" onclick="toggleDetails(this)" aria-expanded="false" style="margin-top:8px">+ details</button>
         <div class="item-details">
           <div class="result-sub" style="margin-bottom:8px">${escHtml(ep.name || 'Unknown episode')}</div>
           <div class="result-stats">
             <span class="result-stat">Last tried: <strong>${lastTried}</strong></span>
             <span class="result-stat">Started <strong>${ep.totalPlays}×</strong></span>
+            ${minsIn !== null ? `<span class="result-stat">Got to: <strong>~${minsIn} min</strong></span>` : ''}
           </div>
           ${triedAgainTag}
         </div>
       </div>
     </li>`;
   });
+
   html += '</ul>';
   if (results.length > 5) {
     html += `<button class="show-more-btn" onclick="revealMore(this)">Show ${results.length - 5} more</button>`;
   }
   html += `<div style="margin-top:16px;display:flex;justify-content:flex-end"><button onclick="downloadGuiltCSV()" style="padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:'Space Grotesk',sans-serif;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent2)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">↓ Export CSV</button></div>`;
   html += '</div>';
+
+  // Abandonment Pattern section
+  html += `
+    <div class="evidence-section">
+      <div class="evidence-label">Your Abandonment Pattern</div>
+      <div style="font-family:'Fraunces',serif;font-size:1.15rem;font-weight:700;color:var(--text);line-height:1.4;margin-bottom:12px">${patternInsight}</div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap">
+        <div style="font-size:0.78rem;color:${earlyAbandons >= midAbandons && earlyAbandons >= lateAbandons ? 'var(--accent2)' : 'var(--text3)'}">Early (0–25%) <strong>${earlyAbandons}</strong></div>
+        <div style="font-size:0.78rem;color:${midAbandons > earlyAbandons && midAbandons >= lateAbandons ? 'var(--accent2)' : 'var(--text3)'}">Middle (25–75%) <strong>${midAbandons}</strong></div>
+        <div style="font-size:0.78rem;color:${lateAbandons > earlyAbandons && lateAbandons > midAbandons ? 'var(--accent2)' : 'var(--text3)'}">Late (75–100%) <strong>${lateAbandons}</strong></div>
+      </div>
+    </div>`;
+
   el.innerHTML = html;
   el.innerHTML += toolVerdict(gqVerdict);
   animateBars(el);
