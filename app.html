@@ -554,6 +554,12 @@ body {
     <div class="nav-item" data-page="binge">
       <span class="nav-icon">📚</span> Binge Sessions
     </div>
+    <div class="nav-item" data-page="early-adopter">
+      <span class="nav-icon">🔭</span> Early Adopter
+    </div>
+    <div class="nav-item" data-page="pod-bubble">
+      <span class="nav-icon">🫧</span> Your Podcast Bubble
+    </div>
   </div>
 
   <div class="sidebar-section">
@@ -643,6 +649,26 @@ body {
       <div class="page-tagline">"Three episodes in. Not stopping now."</div>
     </div>
     <div id="binge-content"></div>
+  </div>
+
+  <!-- TOOL 4: EARLY ADOPTER VS MAINSTREAM -->
+  <div id="page-early-adopter" class="page">
+    <div class="page-header">
+      <div class="page-header-tag">Podcast · Spotify API</div>
+      <div class="page-title">Early Adopter vs. Mainstream</div>
+      <div class="page-tagline">"Did you find them — or did the algorithm?"</div>
+    </div>
+    <div id="early-adopter-content"></div>
+  </div>
+
+  <!-- TOOL 4b: YOUR PODCAST BUBBLE -->
+  <div id="page-pod-bubble" class="page">
+    <div class="page-header">
+      <div class="page-header-tag">Podcast · No API Needed</div>
+      <div class="page-title">Your Podcast Bubble</div>
+      <div class="page-tagline">"What world do you keep returning to?"</div>
+    </div>
+    <div id="pod-bubble-content"></div>
   </div>
 
   <!-- TOOL 5: ONE HIT WONDER -->
@@ -954,6 +980,8 @@ function renderTool(pageId) {
     'guilt-queue':    renderGuiltQueue,
     'hooked':         renderHooked,
     'binge':          renderBinge,
+    'early-adopter':  renderEarlyAdopter,
+    'pod-bubble':     renderPodBubble,
     'one-hit':        renderOneHit,
     'peak-obsession': renderPeakObsession,
     'forgotten':      renderForgotten,
@@ -1324,6 +1352,364 @@ async function generateCodeChallenge(verifier) {
   const enc = new TextEncoder().encode(verifier);
   const hash = await crypto.subtle.digest('SHA-256', enc);
   return btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+}
+
+/* ═══════════════════════════════════════════
+   TOOL 4: EARLY ADOPTER VS MAINSTREAM
+═══════════════════════════════════════════ */
+function renderEarlyAdopter() {
+  const el = document.getElementById('early-adopter-content');
+  if (!State.podcasts.length) {
+    el.innerHTML = emptyState('🎙️','No podcast data','Load a Spotify export that includes podcast listening history.');
+    return;
+  }
+
+  // Collect unique shows and user's first listen date per show
+  const showFirst = {};
+  const showMs = {};
+  for (const r of State.podcasts) {
+    const show = r.episode_show_name;
+    if (!show) continue;
+    const ts = new Date(r.ts).getTime();
+    if (!showFirst[show] || ts < showFirst[show]) showFirst[show] = ts;
+    showMs[show] = (showMs[show] || 0) + (r.ms_played || 0);
+  }
+
+  const shows = Object.keys(showFirst).sort((a,b) => showMs[b] - showMs[a]);
+
+  // If we have a token, fetch popularity from Spotify API
+  if (State.spotifyToken) {
+    el.innerHTML = `<div class="card" style="text-align:center;padding:40px"><div class="empty-icon">🔍</div><div class="card-title">Fetching Spotify data…</div><div class="card-sub">Checking popularity for your ${shows.length} shows</div></div>`;
+    fetchEarlyAdopterData(shows, showFirst, showMs, el);
+    return;
+  }
+
+  // No token yet — show OAuth prompt + offline preview
+  renderEarlyAdopterOffline(shows, showFirst, showMs, el);
+}
+
+function renderEarlyAdopterOffline(shows, showFirst, showMs, el) {
+  const clientId = State.clientId || '';
+  el.innerHTML = `
+    <div class="card" style="margin-bottom:24px">
+      <div class="card-title" style="margin-bottom:8px">Connect Spotify to reveal your adopter profile</div>
+      <div class="card-sub" style="margin-bottom:20px">This tool checks how popular each of your shows is on Spotify today — so you can see if you were ahead of the curve or riding the wave.</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <input id="ea-client-id" type="text" placeholder="Your Spotify Client ID"
+          value="${escHtml(clientId)}"
+          style="flex:1;min-width:200px;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-family:inherit;font-size:0.88rem">
+        <button onclick="startEarlyAdopterOAuth()" style="padding:10px 20px;border-radius:8px;background:var(--accent2);color:#fff;border:none;cursor:pointer;font-weight:600;font-family:inherit;white-space:nowrap">Connect Spotify →</button>
+      </div>
+      <div style="margin-top:12px;font-size:0.75rem;color:var(--text3)">Create a free app at <strong>developer.spotify.com</strong> → add <strong>this file's URL</strong> as a redirect URI. Only needs read access — no playback permissions required.</div>
+    </div>
+    ${renderEarlyAdopterOfflinePreview(shows, showFirst, showMs)}`;
+}
+
+function renderEarlyAdopterOfflinePreview(shows, showFirst, showMs) {
+  const top = shows.slice(0, 8);
+  const rows = top.map(s => {
+    const firstDate = new Date(showFirst[s]).toLocaleDateString('en-US',{month:'short',year:'numeric'});
+    const hrs = Math.round(showMs[s] / 3600000 * 10) / 10;
+    return `<div style="display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--border)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:0.88rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(s)}</div>
+        <div style="font-size:0.74rem;color:var(--text3)">First listened ${firstDate} · ${hrs}h total</div>
+      </div>
+      <div style="font-size:0.75rem;color:var(--text3);white-space:nowrap">Connect to classify →</div>
+    </div>`;
+  }).join('');
+  return `<div class="card"><div class="card-title" style="margin-bottom:4px">Your ${shows.length} Shows</div><div class="card-sub" style="margin-bottom:16px">Connect Spotify to see your adopter tier for each one</div>${rows}</div>`;
+}
+
+async function startEarlyAdopterOAuth() {
+  const clientIdInput = document.getElementById('ea-client-id');
+  const clientId = clientIdInput ? clientIdInput.value.trim() : State.clientId;
+  if (!clientId) { alert('Please enter your Spotify Client ID first.'); return; }
+  State.clientId = clientId;
+  sessionStorage.setItem('pkce_client_id', clientId);
+  sessionStorage.setItem('pkce_return_page', 'early-adopter');
+  const verifier = generateRandomString(64);
+  const challenge = await generateCodeChallenge(verifier);
+  const state = generateRandomString(16);
+  sessionStorage.setItem('pkce_state', state);
+  sessionStorage.setItem('pkce_verifier', verifier);
+  const scope = 'user-read-private';
+  const params = new URLSearchParams({ client_id: clientId, response_type: 'code', redirect_uri: window.location.href.split('?')[0], state, code_challenge_method: 'S256', code_challenge: challenge, scope });
+  window.location.href = 'https://accounts.spotify.com/authorize?' + params;
+}
+
+async function exchangeCodeForToken(code, verifier) {
+  const clientId = sessionStorage.getItem('pkce_client_id') || State.clientId;
+  const res = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ client_id: clientId, grant_type: 'authorization_code', code, redirect_uri: window.location.href.split('?')[0], code_verifier: verifier })
+  });
+  if (!res.ok) throw new Error('Token exchange failed: ' + await res.text());
+  const data = await res.json();
+  State.spotifyToken = data.access_token;
+  sessionStorage.removeItem('pkce_state');
+  sessionStorage.removeItem('pkce_verifier');
+  window.history.replaceState({}, document.title, window.location.pathname);
+}
+
+async function fetchEarlyAdopterData(shows, showFirst, showMs, el) {
+  const results = [];
+  // Fetch popularity for up to 30 shows (to limit API calls)
+  const toFetch = shows.slice(0, 30);
+  for (const show of toFetch) {
+    try {
+      const res = await fetch(
+        `https://api.spotify.com/v1/search?q=${encodeURIComponent(show)}&type=show&market=US&limit=5`,
+        { headers: { Authorization: `Bearer ${State.spotifyToken}` } }
+      );
+      if (res.status === 401) { State.spotifyToken = null; renderEarlyAdopter(); return; }
+      if (!res.ok) throw new Error(res.status);
+      const data = await res.json();
+      const items = data.shows?.items || [];
+      const match = items.find(s => s.name?.toLowerCase() === show.toLowerCase()) || items[0];
+      if (match) {
+        results.push({ show, popularity: match.popularity || 0, firstTs: showFirst[show], ms: showMs[show] });
+      } else {
+        results.push({ show, popularity: null, firstTs: showFirst[show], ms: showMs[show] });
+      }
+    } catch(e) {
+      results.push({ show, popularity: null, firstTs: showFirst[show], ms: showMs[show] });
+    }
+  }
+
+  State.computed._earlyAdopterResults = results;
+  renderEarlyAdopterResults(results, el);
+}
+
+function classifyAdopter(popularity, firstTs) {
+  if (popularity === null) return { tier: 'Unknown', color: 'var(--text3)', icon: '❓', desc: 'No Spotify data found' };
+  const daysSinceFirst = (Date.now() - firstTs) / 86400000;
+  // Heuristic: high popularity + found it recently = mainstream/late
+  // high popularity + found it long ago = early adopter
+  // low popularity = niche/trendsetter
+  if (popularity < 25) return { tier: 'Niche Hunter', color: 'var(--purple)', icon: '🔮', desc: 'Before anyone was listening' };
+  if (popularity < 50 && daysSinceFirst > 365) return { tier: 'Early Adopter', color: 'var(--accent2)', icon: '🚀', desc: 'You got there early' };
+  if (popularity >= 75 && daysSinceFirst < 180) return { tier: 'Late Majority', color: 'var(--amber)', icon: '📣', desc: 'Arrived after the buzz' };
+  if (popularity >= 50 && daysSinceFirst > 365) return { tier: 'Trendsetter', color: 'var(--green)', icon: '⭐', desc: 'Found it before it blew up' };
+  return { tier: 'Mainstream', color: 'var(--blue)', icon: '🌊', desc: 'Right in the cultural current' };
+}
+
+function renderEarlyAdopterResults(results, el) {
+  const withData = results.filter(r => r.popularity !== null);
+  const tierCounts = {};
+  for (const r of results) {
+    const { tier } = classifyAdopter(r.popularity, r.firstTs);
+    tierCounts[tier] = (tierCounts[tier] || 0) + 1;
+  }
+
+  // Overall profile: dominant tier
+  const dominant = Object.entries(tierCounts).sort((a,b) => b[1]-a[1])[0];
+  const overallTier = dominant ? classifyAdopter(
+    results.find(r => classifyAdopter(r.popularity, r.firstTs).tier === dominant[0])?.popularity,
+    results.find(r => classifyAdopter(r.popularity, r.firstTs).tier === dominant[0])?.firstTs
+  ) : { tier: 'Mixed', color: 'var(--text2)', icon: '🎲', desc: 'You span the spectrum' };
+
+  // Store for Personality
+  State.computed.earlyAdopterProfile = dominant?.[0] || 'Mixed';
+
+  const avgPop = withData.length ? Math.round(withData.reduce((s,r) => s + r.popularity, 0) / withData.length) : null;
+
+  const tierOrder = ['Trendsetter','Early Adopter','Niche Hunter','Mainstream','Late Majority','Unknown'];
+  const sorted = [...results].sort((a,b) => {
+    const ta = classifyAdopter(a.popularity, a.firstTs).tier;
+    const tb = classifyAdopter(b.popularity, b.firstTs).tier;
+    return tierOrder.indexOf(ta) - tierOrder.indexOf(tb);
+  });
+
+  const rows = sorted.map(r => {
+    const { tier, color, icon, desc } = classifyAdopter(r.popularity, r.firstTs);
+    const firstDate = new Date(r.firstTs).toLocaleDateString('en-US',{month:'short',year:'numeric'});
+    const hrs = Math.round(r.ms / 3600000 * 10) / 10;
+    return `<div style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:1.3rem;flex-shrink:0">${icon}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:0.88rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(r.show)}</div>
+        <div style="font-size:0.74rem;color:var(--text3)">First listened ${firstDate} · ${hrs}h total · Popularity ${r.popularity ?? '—'}/100</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:0.78rem;font-weight:700;color:${color}">${tier}</div>
+        <div style="font-size:0.7rem;color:var(--text3)">${desc}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const tierSummaryRows = Object.entries(tierCounts).sort((a,b) => b[1]-a[1]).map(([tier, count]) => {
+    const t = classifyAdopter(results.find(r => classifyAdopter(r.popularity, r.firstTs).tier === tier)?.popularity, results.find(r => classifyAdopter(r.popularity, r.firstTs).tier === tier)?.firstTs);
+    return `<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+      <span style="font-size:1.1rem">${t.icon}</span>
+      <div style="flex:1">
+        <div style="font-size:0.82rem;font-weight:600;color:${t.color}">${tier}</div>
+        <div style="font-size:0.72rem;color:var(--text3)">${t.desc}</div>
+      </div>
+      <div style="font-family:'Fraunces',serif;font-size:1.4rem;font-weight:700;color:${t.color}">${count}</div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="stat-row" style="margin-bottom:28px">
+      <div class="stat-box">
+        <div class="stat-box-val" style="color:${overallTier.color}">${overallTier.icon}</div>
+        <div class="stat-box-label">Your Profile</div>
+        <div style="font-size:0.72rem;color:var(--text2);margin-top:4px;font-weight:600">${overallTier.tier}</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-box-val">${results.length}</div>
+        <div class="stat-box-label">Shows Analyzed</div>
+      </div>
+      ${avgPop !== null ? `<div class="stat-box"><div class="stat-box-val">${avgPop}</div><div class="stat-box-label">Avg Popularity</div><div style="font-size:0.72rem;color:var(--text3);margin-top:4px">out of 100</div></div>` : ''}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:28px">
+      <div class="card">
+        <div class="card-title" style="margin-bottom:16px">Your Tier Breakdown</div>
+        ${tierSummaryRows}
+      </div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:8px">What This Means</div>
+        <div style="font-size:0.82rem;color:var(--text2);line-height:1.6">
+          <div style="margin-bottom:8px"><strong style="color:var(--green)">⭐ Trendsetter</strong> — You listened before it got big. Popular now, but you were there first.</div>
+          <div style="margin-bottom:8px"><strong style="color:var(--accent2)">🚀 Early Adopter</strong> — You found it in its early days and it grew with you.</div>
+          <div style="margin-bottom:8px"><strong style="color:var(--purple)">🔮 Niche Hunter</strong> — You go where the algorithms don't. These shows are yours.</div>
+          <div style="margin-bottom:8px"><strong style="color:var(--blue)">🌊 Mainstream</strong> — You and the world arrived at the same time. That's fine.</div>
+          <div><strong style="color:var(--amber)">📣 Late Majority</strong> — The show was everywhere before you got there.</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="margin-bottom:4px">Show by Show</div>
+      <div class="card-sub" style="margin-bottom:16px">Your ${results.length} most-listened shows, classified</div>
+      ${rows}
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════
+   TOOL 4b: YOUR PODCAST BUBBLE
+═══════════════════════════════════════════ */
+const BUBBLE_CATEGORIES = [
+  { name: 'True Crime',   icon: '🔍', color: 'var(--red)',    keywords: ['crime','murder','cold case','unsolved','investigation','detective','killer','serial','homicide','forensic','criminal','crim','mystery','case','suspect','victim','trial','evidence'] },
+  { name: 'Business',     icon: '💼', color: 'var(--amber)',  keywords: ['business','entrepreneur','startup','invest','finance','money','market','economy','economic','wealth','venture','hustle','leadership','management','sales','marketing','career'] },
+  { name: 'Health',       icon: '🌿', color: 'var(--green)',  keywords: ['health','wellness','mental','therapy','mindful','meditat','nutrition','fitness','diet','sleep','anxiety','depression','doctor','medical','brain','body','exercise','yoga','trauma'] },
+  { name: 'News',         icon: '📰', color: 'var(--blue)',   keywords: ['news','daily','politics','world','current','today','report','breaking','press','media','democracy','election','govern','white house','senate','congress','washington','analysis'] },
+  { name: 'Comedy',       icon: '😂', color: 'var(--purple)', keywords: ['comedy','funny','laugh','humor','standup','stand-up','joke','improv','satire','parody','roast','silly','weird','bizarre','absurd'] },
+  { name: 'Science',      icon: '🔬', color: 'var(--cyan,#4ec9b0)', keywords: ['science','physics','biology','chemistry','space','nasa','climate','nature','tech','ai','robot','engineer','math','history','philosophy','psychology','sociolog','anthropolog'] },
+  { name: 'Storytelling', icon: '📖', color: 'var(--accent2)', keywords: ['story','narrat','fiction','tales','stories','podcast fiction','audio drama','radio drama','serial fiction','novel','memoir','essay','nonfiction','documentary'] },
+  { name: 'Sports',       icon: '🏆', color: 'var(--orange,#e6824a)', keywords: ['sport','football','basketball','baseball','soccer','nfl','nba','mlb','nhl','tennis','golf','race','athlete','game','team','league','playoff','championship'] },
+];
+
+function renderPodBubble() {
+  const el = document.getElementById('pod-bubble-content');
+  if (!State.podcasts.length) {
+    el.innerHTML = emptyState('🫧','No podcast data','Load a Spotify export that includes podcast listening history.');
+    return;
+  }
+
+  // Tally ms_played per show, then classify each show
+  const showMs = {};
+  for (const r of State.podcasts) {
+    const show = r.episode_show_name;
+    if (!show) continue;
+    showMs[show] = (showMs[show] || 0) + (r.ms_played || 0);
+  }
+
+  const totalMs = Object.values(showMs).reduce((s,v) => s+v, 0);
+
+  // Classify each show into best-matching category
+  const catMs = {};
+  const catShows = {};
+  for (const cat of BUBBLE_CATEGORIES) { catMs[cat.name] = 0; catShows[cat.name] = []; }
+  let uncategorizedMs = 0;
+  const uncategorizedShows = [];
+
+  for (const [show, ms] of Object.entries(showMs)) {
+    const lower = show.toLowerCase();
+    let bestCat = null, bestScore = 0;
+    for (const cat of BUBBLE_CATEGORIES) {
+      const score = cat.keywords.filter(k => lower.includes(k)).length;
+      if (score > bestScore) { bestScore = score; bestCat = cat; }
+    }
+    if (bestCat && bestScore > 0) {
+      catMs[bestCat.name] += ms;
+      catShows[bestCat.name].push({ show, ms });
+    } else {
+      uncategorizedMs += ms;
+      uncategorizedShows.push({ show, ms });
+    }
+  }
+
+  // Build sorted list of categories with data
+  const categories = BUBBLE_CATEGORIES
+    .map(cat => ({ ...cat, ms: catMs[cat.name], shows: catShows[cat.name].sort((a,b) => b.ms-a.ms) }))
+    .filter(c => c.ms > 0)
+    .sort((a,b) => b.ms - a.ms);
+
+  if (uncategorizedMs > 0) {
+    categories.push({ name: 'Other', icon: '🎙️', color: 'var(--text3)', ms: uncategorizedMs, shows: uncategorizedShows.sort((a,b) => b.ms-a.ms) });
+  }
+
+  // Verdict
+  const topCat = categories[0];
+  const topPct = topCat ? topCat.ms / totalMs : 0;
+  let verdict, verdictSub;
+  if (topPct >= 0.6) {
+    verdict = `You live in the ${topCat.name} bubble`;
+    verdictSub = `${Math.round(topPct*100)}% of your podcast time is ${topCat.name}. You know what you like, and you commit.`;
+  } else if (topPct >= 0.4) {
+    verdict = `Mostly ${topCat.name}, with room to roam`;
+    verdictSub = `${topCat.name} dominates, but you do venture out. A big bubble with some windows.`;
+  } else {
+    verdict = 'Genuinely curious';
+    verdictSub = `No single category takes more than ${Math.round(topPct*100)}% of your time. You cross genres freely.`;
+  }
+
+  // Store for Personality
+  State.computed.podBubbleTopCat = topCat?.name || null;
+  State.computed.podBubbleTopPct = topPct;
+
+  // SVG donut chart
+  const donutR = 70, donutCx = 90, donutCy = 90, donutStroke = 28;
+  const circumference = 2 * Math.PI * donutR;
+  let offset = 0;
+  let donutSlices = '';
+  for (const cat of categories) {
+    const pct = cat.ms / totalMs;
+    const dash = pct * circumference;
+    const gap = circumference - dash;
+    donutSlices += `<circle cx="${donutCx}" cy="${donutCy}" r="${donutR}" fill="none" stroke="${cat.color}" stroke-width="${donutStroke}" stroke-dasharray="${dash.toFixed(2)} ${gap.toFixed(2)}" stroke-dashoffset="${(-offset).toFixed(2)}" transform="rotate(-90 ${donutCx} ${donutCy})"><title>${cat.name}: ${Math.round(pct*100)}%</title></circle>`;
+    offset += dash;
+  }
+  const donutSvg = `<svg width="180" height="180" viewBox="0 0 180 180">${donutSlices}</svg>`;
+
+  const catRows = categories.map(cat => {
+    const pct = Math.round(cat.ms / totalMs * 100);
+    const hrs = Math.round(cat.ms / 3600000 * 10) / 10;
+    const topShows = cat.shows.slice(0,3).map(s => escHtml(s.show)).join(', ');
+    return `<div style="margin-bottom:18px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <span style="font-size:1.1rem">${cat.icon}</span>
+        <div style="font-size:0.88rem;font-weight:600;color:var(--text)">${cat.name}</div>
+        <div style="margin-left:auto;font-family:'Fraunces',serif;font-size:1.1rem;font-weight:700;color:${cat.color}">${pct}%</div>
+      </div>
+      <div style="background:var(--bg3);border-radius:4px;height:6px;margin-bottom:6px">
+        <div style="width:${pct}%;height:100%;border-radius:4px;background:${cat.color};transition:width 0.6s ease"></div>
+      </div>
+      <div style="font-size:0.72rem;color:var(--text3)">${hrs}h · ${cat.shows.length} show${cat.shows.length !== 1 ? 's' : ''} · ${topShows}</div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="card" style="margin-bottom:24px">
+      <div style="font-family:'Fraunces',serif;font-size:1.6rem;font-weight:700;color:var(--accent2);margin-bottom:8px">${verdict}</div>
+      <div style="font-size:0.88rem;color:var(--text2);line-height:1.6">${verdictSub}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:180px 1fr;gap:24px;align-items:start;margin-bottom:28px">
+      <div>${donutSvg}</div>
+      <div class="card">${catRows}</div>
+    </div>`;
 }
 
 /* ═══════════════════════════════════════════
@@ -1854,6 +2240,11 @@ function renderPersonality() {
   const totalMsPod   = State.podcasts.reduce((s,r) => s + (r.ms_played||0), 0);
   const totalHours   = Math.round((totalMsMusic + totalMsPod) / 3600000);
 
+  // Pull in data from newer tools if available
+  const earlyAdopterProfile = State.computed.earlyAdopterProfile || null;
+  const podBubbleTopPct = State.computed.podBubbleTopPct || 0;
+  const podBubbleTopCat = State.computed.podBubbleTopCat || null;
+
   // Determine personality
   let label, desc, color;
   const stats = [];
@@ -1874,11 +2265,25 @@ function renderPersonality() {
     stats.push({ label: 'Binge sessions', val: bingeSessions, note: '' });
   } else if (bingeSessions > 5) {
     label = 'The Deep Diver';
-    desc = 'When something hooks you, it really hooks you. You don\'t just sample — you commit. Your listening history is a series of obsessions, each one consuming you completely before you surface and find the next. Podcasts marathons, album runs, artist spirals — you go deep.';
+    desc = 'When something hooks you, it really hooks you. You don\'t just sample — you commit. Your listening history is a series of obsessions, each one consuming you completely before you surface and find the next. Podcast marathons, album runs, artist spirals — you go deep.';
     color = 'var(--purple)';
     stats.push({ label: 'Binge sessions identified', val: bingeSessions, note: '3+ episodes back to back' });
     if (top20Pct) stats.push({ label: 'Music concentration', val: Math.round(top20Pct*100) + '%', note: 'in top 20 tracks' });
     if (podCompletionRate !== null) stats.push({ label: 'Podcast completion rate', val: Math.round(podCompletionRate*100) + '%', note: '' });
+  } else if (earlyAdopterProfile && (earlyAdopterProfile === 'Trendsetter' || earlyAdopterProfile === 'Niche Hunter' || earlyAdopterProfile === 'Early Adopter')) {
+    label = 'The Tastemaker';
+    desc = 'You find things before they find everyone else. Your podcast shelf reads like a syllabus for what\'s culturally relevant six months from now. Whether by instinct or relentless curiosity, you keep ending up ahead of the curve — and taking no credit for it.';
+    color = 'var(--accent2)';
+    stats.push({ label: 'Adopter profile', val: earlyAdopterProfile, note: 'via Early Adopter tool' });
+    if (podBubbleTopCat && podBubbleTopPct > 0) stats.push({ label: 'Top podcast category', val: podBubbleTopCat, note: Math.round(podBubbleTopPct*100) + '% of your listening' });
+    stats.push({ label: 'Binge sessions', val: bingeSessions, note: '' });
+  } else if (podBubbleTopPct >= 0.6 && podBubbleTopCat) {
+    label = 'The Specialist';
+    desc = `You have a world, and you live in it. Over ${Math.round(podBubbleTopPct*100)}% of your podcast time is ${podBubbleTopCat}. You're not dilettante — you're devoted. You know your corner deeply, and you wouldn't trade that depth for breadth.`;
+    color = 'var(--green)';
+    stats.push({ label: 'Top podcast category', val: podBubbleTopCat, note: Math.round(podBubbleTopPct*100) + '% of total listening' });
+    if (podCompletionRate !== null) stats.push({ label: 'Podcast completion rate', val: Math.round(podCompletionRate*100) + '%', note: '' });
+    stats.push({ label: 'Binge sessions', val: bingeSessions, note: '' });
   } else {
     label = 'The Grazer';
     desc = 'You move across the landscape of sound without getting too attached. A bit of music here, a podcast there, something new when the mood strikes. You\'re not obsessed, you\'re not systematic — you just listen when something calls to you, and stop when it doesn\'t. A life well-grazed.';
@@ -1938,6 +2343,8 @@ function renderPersonality() {
     { rule: 'Podcast completion', val: podCompletionRate !== null ? Math.round(podCompletionRate*100)+'%' : 'N/A', threshold: '< 40% → The Collector', met: podCompletionRate !== null && podCompletionRate < 0.4 },
     { rule: 'Music concentration', val: top20Pct !== null ? Math.round(top20Pct*100)+'%' : 'N/A', threshold: '> 60% → The Comfort Seeker', met: top20Pct !== null && top20Pct > 0.6 },
     { rule: 'Binge sessions', val: bingeSessions, threshold: '> 5 → The Deep Diver', met: bingeSessions > 5 },
+    { rule: 'Early Adopter profile', val: earlyAdopterProfile || 'Not yet run', threshold: 'Trendsetter / Niche Hunter / Early → The Tastemaker', met: earlyAdopterProfile && ['Trendsetter','Niche Hunter','Early Adopter'].includes(earlyAdopterProfile) },
+    { rule: 'Podcast Bubble', val: podBubbleTopCat ? podBubbleTopCat + ' ' + Math.round(podBubbleTopPct*100) + '%' : 'Not yet run', threshold: '> 60% one category → The Specialist', met: podBubbleTopPct >= 0.6 },
   ];
 
   el.innerHTML = `
@@ -2361,6 +2768,22 @@ window.addEventListener('DOMContentLoaded', () => {
   // Lock nav items until data is loaded
   document.querySelectorAll('.nav-item').forEach(n => n.classList.add('locked'));
 
+  // Handle Spotify OAuth callback (for Early Adopter tool)
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  const oauthState = params.get('state');
+  const savedState = sessionStorage.getItem('pkce_state');
+  const verifier = sessionStorage.getItem('pkce_verifier');
+  if (code && oauthState && savedState && oauthState === savedState && verifier) {
+    const returnPage = sessionStorage.getItem('pkce_return_page') || 'early-adopter';
+    sessionStorage.removeItem('pkce_return_page');
+    exchangeCodeForToken(code, verifier).then(() => {
+      navigate(returnPage);
+    }).catch(err => {
+      console.error('OAuth token exchange failed:', err);
+      navigate(returnPage);
+    });
+  }
 });
 </script>
 </body>
