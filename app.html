@@ -1240,7 +1240,11 @@ function toggleMobileSidebar() {
 }
 
 document.querySelectorAll('.nav-item').forEach(item => {
+  item.setAttribute('tabindex', '0');
   item.addEventListener('click', () => navigate(item.dataset.page));
+  item.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(item.dataset.page); }
+  });
 });
 
 function showToast(msg) {
@@ -1355,7 +1359,23 @@ function processData(raw) {
   const MIN_MS = 10000;
   State.music = [];
   State.podcasts = [];
-  for (const r of raw) {
+
+  // Normalise legacy field names from older Spotify export formats
+  function normaliseRecord(r) {
+    if (r.ms_played == null && r.msPlayed != null) r.ms_played = r.msPlayed;
+    if (!r.master_metadata_track_name && r.trackName) r.master_metadata_track_name = r.trackName;
+    if (!r.master_metadata_album_artist_name && r.artistName) r.master_metadata_album_artist_name = r.artistName;
+    if (!r.episode_show_name && r.showName) r.episode_show_name = r.showName;
+    if (!r.episode_name && r.episodeName) r.episode_name = r.episodeName;
+    if (!r.ts && r.endTime) r.ts = r.endTime;
+    if (r.ms_played == null) r.ms_played = 0;
+    if (!r.reason_start) r.reason_start = '';
+    if (!r.reason_end) r.reason_end = '';
+    return r;
+  }
+
+  for (const raw_r of raw) {
+    const r = normaliseRecord(raw_r);
     if ((r.ms_played || 0) < MIN_MS) continue;
     if (r.master_metadata_track_name && r.master_metadata_album_artist_name) {
       State.music.push(r);
@@ -1372,6 +1392,43 @@ function processData(raw) {
    UTILITIES
 ═══════════════════════════════════════════ */
 function fmtNum(n) { return n.toLocaleString(); }
+
+// Convert a UTC timestamp string to a Date in the user's selected timezone
+function tsToLocal(ts) {
+  const utc = new Date(ts);
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: State.timezone || 'UTC',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  }).formatToParts(utc);
+  const get = t => parseInt(parts.find(p => p.type === t)?.value || '0', 10);
+  const h = get('hour') === 24 ? 0 : get('hour'); // handle midnight edge case
+  return new Date(get('year'), get('month') - 1, get('day'), h, get('minute'), get('second'));
+}
+
+function initTimezoneSelector() {
+  const sel = document.getElementById('tz-select');
+  if (!sel) return;
+  const detected = State.timezone;
+  const tzList = [
+    'Pacific/Honolulu','America/Anchorage','America/Los_Angeles','America/Denver',
+    'America/Chicago','America/New_York','America/Sao_Paulo','Europe/London',
+    'Europe/Paris','Europe/Berlin','Europe/Moscow','Asia/Dubai','Asia/Kolkata',
+    'Asia/Bangkok','Asia/Shanghai','Asia/Tokyo','Asia/Seoul','Australia/Sydney',
+    'Pacific/Auckland',
+  ];
+  const allTz = tzList.includes(detected) ? tzList : [detected, ...tzList];
+  allTz.forEach(tz => {
+    const opt = document.createElement('option');
+    opt.value = tz;
+    opt.textContent = tz.replace(/_/g, ' ');
+    if (tz === detected) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  sel.addEventListener('change', () => { State.timezone = sel.value; });
+}
+initTimezoneSelector();
 function fmtMs(ms) {
   const m = Math.floor(ms / 60000);
   const h = Math.floor(m / 60);
@@ -1604,7 +1661,7 @@ function renderGuiltQueue(windowIdx = 1) {
   const el = document.getElementById('guilt-queue-content');
 
   if (!State.podcasts.length) {
-    el.innerHTML = emptyState('🎙️','No podcast data found','This tool needs podcast listening history. If you mostly listen to music, try One Hit Wonder or Forgotten Plays instead.');
+    el.innerHTML = emptyState('😬','No abandoned podcasts found','Either you finish everything you start, or you haven\'t explored podcasts on Spotify yet. Impressive either way.');
     return;
   }
 
@@ -1636,7 +1693,7 @@ function renderGuiltQueue(windowIdx = 1) {
 
   if (!results.length) {
     el.innerHTML = `<div class="toggle-row">${toggleHtml}</div>` +
-      emptyState('✅','No guilt here!',`Nothing intentionally started and abandoned in the ${win.label.toLowerCase()} window. Try a longer timeframe.`);
+      emptyState('😬','No abandoned podcasts found','Either you finish everything you start, or you haven\'t explored podcasts on Spotify yet. Impressive either way.');
     return;
   }
 
@@ -1724,7 +1781,7 @@ function animateBannerCounts(data) {
 function renderHooked() {
   const el = document.getElementById('hooked-content');
   if (!State.podcasts.length) {
-    el.innerHTML = emptyState('🎙️','No podcast data found','This tool needs podcast listening history. If you mostly listen to music, try One Hit Wonder or Forgotten Plays instead.');
+    el.innerHTML = emptyState('🎣','No surprise obsessions detected','You\'re deliberate about what you listen to — nothing slipped through unless you chose it.');
     return;
   }
 
@@ -1745,7 +1802,7 @@ function renderHooked() {
   results.sort((a,b) => new Date(b.firstTs) - new Date(a.firstTs));
 
   if (!results.length) {
-    el.innerHTML = emptyState('🎣','No surprise hooks found','You tend to finish what you choose and skip what you don\'t — no accidental hooks this time.');
+    el.innerHTML = emptyState('🎣','No surprise obsessions detected','You\'re deliberate about what you listen to — nothing slipped through unless you chose it.');
     return;
   }
 
@@ -1853,7 +1910,7 @@ const BINGE_WINDOWS = [
 function renderBinge(windowIdx = 3) {
   const el = document.getElementById('binge-content');
   if (!State.podcasts.length) {
-    el.innerHTML = emptyState('🎙️','No podcast data','Binge tracking needs podcast history. Explore your music obsessions with Peak Obsession instead.');
+    el.innerHTML = emptyState('📚','No binge sessions found','You\'re more of a steady listener than a rabbit-hole type. Nothing wrong with that.');
     return;
   }
 
@@ -1878,7 +1935,7 @@ function renderBinge(windowIdx = 3) {
 
   if (!sessions.length) {
     el.innerHTML = `<div class="toggle-row">${toggleHtml}</div>` +
-      emptyState('📚','No binge sessions found',`No 3+ episode back-to-back sessions in the ${win.label.toLowerCase()} window.`);
+      emptyState('📚','No binge sessions found','You\'re more of a steady listener than a rabbit-hole type. Nothing wrong with that.');
     return;
   }
 
@@ -1928,7 +1985,8 @@ function renderBinge(windowIdx = 3) {
   top.forEach((session, i) => {
     const totalMs = session.reduce((s,r) => s + (r.ms_played||0), 0);
     const sessionStartMs = new Date(session[0].ts).getTime() - (session[0].ms_played || 0);
-    const date = new Date(sessionStartMs).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    const sessionStartLocal = tsToLocal(new Date(sessionStartMs).toISOString());
+    const date = sessionStartLocal.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
     const shows = [...new Set(session.map(r => r.episode_show_name))];
     const mainShow = shows[0];
     const multiShow = shows.length > 1 ? ` + ${shows.length-1} other${shows.length>2?'s':''}` : '';
@@ -1982,7 +2040,7 @@ async function generateCodeChallenge(verifier) {
 function renderEarlyAdopter() {
   const el = document.getElementById('early-adopter-content');
   if (!State.podcasts.length) {
-    el.innerHTML = emptyState('🔭','No podcast data','Early Adopter needs podcast history to check show popularity. Try Your Podcast Bubble once you have podcast data.');
+    el.innerHTML = emptyState('🔭','Not enough podcast history','The more you listen to podcasts on Spotify, the more interesting this gets.');
     return;
   }
 
@@ -2244,7 +2302,8 @@ function renderEarlyAdopterResults(results, el) {
       <div class="card-sub" style="margin-bottom:16px">Your ${results.length} most-listened shows, classified</div>
       ${rows}
     </div>
-    ${toolVerdict(eaVerdict)}`;
+    ${toolVerdict(eaVerdict)}
+    <div style="margin-top:24px;font-size:0.7rem;color:var(--text3);text-align:center;padding-top:16px;border-top:1px solid var(--border)">Powered by the Spotify Web API. Data reflects current popularity and may change over time.</div>`;
 }
 
 /* ═══════════════════════════════════════════
@@ -2445,7 +2504,7 @@ const BUBBLE_CATEGORIES = [
 function renderPodBubble() {
   const el = document.getElementById('pod-bubble-content');
   if (!State.podcasts.length) {
-    el.innerHTML = emptyState('🫧','No podcast data','Your Podcast Bubble needs podcast listening history. Check out Music vs Podcast Brain or Discoveries for music-only insights.');
+    el.innerHTML = emptyState('🫧','Not enough podcast data','Start exploring a few shows and come back — your bubble is still forming.');
     return;
   }
 
@@ -2614,7 +2673,7 @@ function renderOneHit() {
   results.sort((a,b) => b.lastTs - a.lastTs);
 
   if (!results.length) {
-    el.innerHTML = emptyState('🎨','No one-hit wonders found','You listen to your artists more broadly. Respect.');
+    el.innerHTML = emptyState('🎯','No one-hit-wonder relationships yet','You either go deep on every artist you play, or you haven\'t played enough of any single artist yet.');
     return;
   }
 
@@ -2730,6 +2789,11 @@ function renderPeakObsession() {
     results.push({ artist, track, totalPlays, peakCount, peakDate, recentPlays, dropOff, weeks, lastPlayed });
   }
   results.sort((a,b) => b.lastPlayed - a.lastPlayed);
+
+  if (!results.length) {
+    el.innerHTML = emptyState('📈','Not enough data to find peaks','Listen to more tracks on repeat, then come back — this tool needs some obsessions to work with.');
+    return;
+  }
 
   const topByDrop = [...results].sort((a,b) => b.dropOff - a.dropOff)[0];
   const peakDateStr = topByDrop.peakDate.toLocaleDateString('en-US',{month:'short',year:'numeric'});
@@ -2850,7 +2914,7 @@ function renderForgotten(windowIdx = 0) {
 
   if (!results.length) {
     el.innerHTML = `<div class="toggle-row">${toggleHtml}</div>` +
-      emptyState('💚','No forgotten songs',`No songs have been quiet for more than ${win.label}. Try a shorter threshold.`);
+      emptyState('🗂️','Nothing forgotten in this time range','Either you\'re still listening to everything you\'ve ever played, or try adjusting the time window above.');
     return;
   }
 
@@ -2934,11 +2998,11 @@ function renderBrain() {
   const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const hours = Array.from({length:24},(_,i)=>i);
 
-  function buildGrid(records, colorFn) {
+  function buildGrid(records) {
     const grid = {};
     let max = 0;
     for (const r of records) {
-      const d = new Date(r.ts);
+      const d = tsToLocal(r.ts);
       const dow = (d.getDay() + 6) % 7; // Mon=0
       const hr = d.getHours();
       const k = `${dow}-${hr}`;
@@ -2948,8 +3012,8 @@ function renderBrain() {
     return { grid, max };
   }
 
-  const { grid: mGrid, max: mMax } = buildGrid(State.music, 'green');
-  const { grid: pGrid, max: pMax } = buildGrid(State.podcasts, 'blue');
+  const { grid: mGrid, max: mMax } = buildGrid(State.music);
+  const { grid: pGrid, max: pMax } = buildGrid(State.podcasts);
 
   function renderHeatmap(grid, max, color) {
     const hourLabels = hours.map(h => h === 0 ? '12a' : h < 12 ? h+'a' : h === 12 ? '12p' : (h-12)+'p');
@@ -2975,7 +3039,9 @@ function renderBrain() {
           const b = Math.round(33 + t * (240 - 33));
           bg = `rgb(${r},${g},${b})`;
         }
-        html += `<div class="heatmap-cell" style="background:${bg}" data-tip="${days[dow]} ${hourLabels[hr]}: ${val} plays"></div>`;
+        const cellText = val > 0 ? String(val) : '';
+        const textCol = t > 0.55 ? 'rgba(0,0,0,0.65)' : 'rgba(255,255,255,0.35)';
+        html += `<div class="heatmap-cell" style="background:${bg};font-size:6px;color:${textCol};display:flex;align-items:center;justify-content:center;line-height:1;overflow:hidden" data-tip="${days[dow]} ${hourLabels[hr]}: ${val} plays">${cellText}</div>`;
       }
     }
     html += '</div></div>';
@@ -3735,6 +3801,36 @@ function renderHome() {
     }
   }
 
+  // ── Data health indicator ──
+  const podHealthy = State.podcasts.length >= 20;
+  const musicHealthy = State.music.length >= 50;
+  const allTsForSpan = [...State.music, ...State.podcasts].map(r => r.ts).sort();
+  const dateSpanMonths = allTsForSpan.length >= 2
+    ? Math.round((new Date(allTsForSpan[allTsForSpan.length-1]) - new Date(allTsForSpan[0])) / (30 * 86400000))
+    : 0;
+  const historyHealthy = dateSpanMonths >= 3;
+  const healthItems = [
+    { label: 'Music tools',    ok: musicHealthy,  note: !musicHealthy  ? 'Light music history'   : `${fmtNum(State.music.length)} plays` },
+    { label: 'Podcast tools',  ok: podHealthy,    note: !podHealthy    ? 'Light podcast history' : `${fmtNum(State.podcasts.length)} plays` },
+    { label: 'Trend analysis', ok: historyHealthy, note: !historyHealthy ? 'Short history — some tools work better with more' : `${dateSpanMonths} months of data` },
+  ];
+  const allHealthy = healthItems.every(h => h.ok);
+  const healthHtml = allHealthy
+    ? `<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:28px;padding:14px 18px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);align-items:center"><span style="color:var(--accent);font-size:0.85rem">●</span><span style="font-size:0.82rem;color:var(--text2);font-weight:500">All 10 tools fully unlocked</span></div>`
+    : `<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:28px;padding:14px 18px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius)">${healthItems.map(h => `<div style="display:flex;align-items:center;gap:6px"><span style="color:${h.ok ? 'var(--accent)' : 'var(--amber)'};font-size:0.75rem">●</span><span style="font-size:0.78rem;font-weight:600;color:var(--text2)">${h.label}</span><span style="font-size:0.75rem;color:var(--text3)">${h.note}</span></div>`).join('')}</div>`;
+
+  // ── Shared account check ──
+  const uniqueArtistCountSA = new Set(State.music.map(r => r.master_metadata_album_artist_name).filter(Boolean)).size;
+  const sharedAccountLikely = State.music.length > 0 && uniqueArtistCountSA / State.music.length > 0.3;
+  const sharedAccountHtml = sharedAccountLikely
+    ? `<div style="background:var(--amber-dim);border:1px solid var(--amber);border-radius:var(--radius);padding:12px 16px;margin-bottom:20px;font-size:0.8rem;color:var(--text2);display:flex;gap:10px;align-items:flex-start"><span>⚠️</span><span>Your listening looks quite varied — if you share this Spotify account with others, some insights may reflect their habits too.</span></div>`
+    : '';
+
+  // ── Warnings banner ──
+  const warningsHtml = State.warnings.length
+    ? `<div style="background:var(--amber-dim);border:1px solid var(--amber);border-radius:var(--radius);padding:12px 16px;margin-bottom:20px;font-size:0.8rem;color:var(--text2)">${State.warnings.map(w => `<div>${w}</div>`).join('')}</div>`
+    : '';
+
   const contentHtml = `
     <div class="home-content-wrap">
       <div style="font-family:'Fraunces',serif;font-size:2.1rem;font-weight:700;color:var(--text);line-height:1.25;margin-bottom:32px">
@@ -3742,12 +3838,16 @@ function renderHome() {
         <span style="font-size:1.45rem;font-weight:300;font-style:italic;color:var(--text2)">Here's what that actually says about you.</span>
       </div>
       <div class="home-stats-grid">${statsHtml}</div>
+      ${healthHtml}
+      ${warningsHtml}
+      ${sharedAccountHtml}
       ${narrativeText ? `<div class="home-narrative">${narrativeText}</div>` : ''}
       ${startHereHtml}
       <div class="trust-line">
         <span style="font-size:0.85rem">🔒</span>
         <span>Everything you see was calculated on your device. Your data never left.</span>
       </div>
+      ${State.computed._tzDisplay ? `<div style="font-size:0.72rem;color:var(--text3);text-align:center;margin-top:8px">Times shown in ${State.computed._tzDisplay}</div>` : ''}
     </div>`;
 
   // ── Animation: only play once per session ──
