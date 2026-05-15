@@ -1591,154 +1591,191 @@ function renderEarlyAdopterResults(results, el) {
    TOOL 4b: YOUR PODCAST BUBBLE
 ═══════════════════════════════════════════ */
 const BUBBLE_CATEGORIES = [
-  // Most specific / high-signal categories first to win on keyword ties
-  { name: 'Investing & Markets', icon: '📈', color: '#00c087', keywords: [
-    // show-specific
-    'fast money','mad money','halftime report','halftime','options action','closing bell','on the tape','mrkt','risk reversal','riskrev',
-    'compound and friends','1 big thing','unhedged','last call','market call','motley fool','candid cashflow','memo by howard',
+  // Most specific / high-signal first so they win on keyword ties
+  { name: 'Investing & Markets',      icon: '📈', color: '#00c087', keywords: [
+    'fast money','mad money','halftime report','halftime','options action','closing bell',
+    'on the tape','mrkt','risk reversal','riskrev','compound and friends','1 big thing',
+    'unhedged','last call','market call','motley fool','candid cashflow','memo by howard',
     'cnbc','bloomberg businessweek','wsj','barron','financial times','ft alphaville',
-    // generic
     'invest','trading','stock','equit','portfolio','hedge','bull market','bear market',
-    'earnings','dividend','etf','index fund','options','futures','asset management',
-    'fund manager','ticker','short sell','value invest','growth invest','market watch',
+    'earnings','dividend','etf','index fund','futures','asset management','fund manager',
+    'ticker','short sell','value invest','growth invest','market watch',
     'schwab','fidelity','vanguard','blackrock','goldman','jp morgan',
   ]},
-  { name: 'Crypto & Fintech',    icon: '₿',  color: '#f7931a', keywords: [
-    // show-specific
+  { name: 'Crypto & Fintech',         icon: '₿',  color: '#f7931a', keywords: [
     'coindesk','the breakdown','public key','tokenized','web3 with a16z','ieee blockchain',
     'markets daily crypto','binance podcast','own the moment',
     'payments on fire','payments podcast','cambrian fintech','filene',
-    // crypto
     'crypto','bitcoin','ethereum','blockchain','defi','nft','web3','token',
     'wallet','altcoin','btc','eth','solana','dogecoin','coinbase','binance',
     'hodl','decentralized','mining','dao','staking','yield','ledger','satoshi',
     'polkadot','avalanche','cardano','chainlink','uniswap','opensea',
-    // fintech & payments
-    'fintech','payment','neobank','challenger bank','embedded finance','open banking',
-    'interchange','card network','stripe','plaid','square','paypal',
-    'remittance','money transfer','digital wallet','credit union','lending',
+    'fintech','payment','neobank','embedded finance','open banking',
+    'interchange','stripe','plaid','square','paypal','remittance','money transfer',
   ]},
-  { name: 'True Crime',          icon: '🔍', color: '#e05c5c', keywords: [
+  { name: 'True Crime',               icon: '🔍', color: '#e05c5c', keywords: [
     'hot money','new narcos',
     'crime','murder','cold case','unsolved','investigation','detective','killer','serial',
-    'homicide','forensic','criminal','crim','mystery','suspect','victim','trial','evidence',
+    'homicide','forensic','criminal','crim','mystery','suspect','victim','evidence',
     'autopsy','disappeared','convicted','perpetrator','predator','scam','fraud','con man',
+    'heist','robbery','prison','prosecutor','verdict','interrogat',
   ]},
-  { name: 'Technology & AI',     icon: '💻', color: '#4ec9b0', keywords: [
-    // show-specific
+  { name: 'Technology & AI',          icon: '💻', color: '#4ec9b0', keywords: [
     'a16z','andreessen','ai daily brief','ai breakdown','ai + a16z','the a16z show',
     'me, myself, and ai','hello future me',
-    // generic
     'tech','software','app','developer','coding','programming','silicon valley',
     'artificial intelligence','machine learning','data science','algorithm',
     'cybersecurity','cloud','platform','digital','product','ux','api','open source',
     'venture capital','vc fund','hardware','robotics','autonomous','neural','llm','gpt',
   ]},
-  { name: 'Economics',           icon: '📊', color: '#d4a017', keywords: [
-    // show-specific
-    'freakonomics','economist podcasts','cautionary tales','tim harford','choiceology',
-    'katy milkman','marketplace','scam inc','economics of everyday','solvable',
-    'against the rules','michael lewis','hidden side',
-    // generic
+  { name: 'Sports',                   icon: '🏆', color: '#e6824a', keywords: [
+    'wolverine','michigan','josh pate','college football show','locked on wolverine','cfb','big ten',
+    'sport','football','basketball','baseball','soccer','nfl','nba','mlb','nhl',
+    'tennis','golf','athlete','league','playoff','championship','fantasy','draft',
+    'formula','ufc','wrestling','olympic','transfer','fixture','lacrosse','rugby',
+    'cricket','swimming','gymnastics','track and field',
+  ]},
+  { name: 'Business & Economics',     icon: '💼', color: '#d4a017', keywords: [
+    'freakonomics','economist podcasts','cautionary tales','tim harford',
+    'marketplace','economics of everyday','solvable','michael lewis','hidden side',
+    'business','entrepreneur','startup','hustle','leadership','management',
+    'sales','marketing','career','founder','executive','ceo','brand','scaling',
+    'strategy','negotiat','pitch','b2b','saas','courage','candid','cashflow',
     'econom','monetary','fiscal','inflation','interest rate','gdp','recession',
     'federal reserve','fed','bond market','commodit','trade war','tariff',
     'supply chain','unemployment','labour market','macro','micro','capitalism',
-    'behavioral econom','decision','nudge','incentive','price','cost','rational',
+    'nudge','incentive','price','cost','rational','behavioral econom',
+    'real estate','property','mortgage','housing','landlord','reit',
   ]},
-  { name: 'Storytelling',        icon: '📖', color: '#f472b6', keywords: [
-    // show-specific
-    'revisionist history','malcolm gladwell','broken record','rick rubin',
-    'slight change of plans','against the rules','deep background','noah feldman',
-    'at the letters',
-    // generic
-    'story','narrat','fiction','tales','stories','audio drama','radio drama',
-    'serial fiction','novel','memoir','essay','nonfiction','documentary',
-    'retold','untold','longreads','chapter','diary','letters',
+  { name: 'News & Current Affairs',   icon: '📰', color: '#5c8fe0', keywords: [
+    "today, explained","what's news",'morning edition','up first','the daily','front burner',
+    'news','breaking','press','media','headlines','briefing','roundup','bulletin',
+    'current events','npr','bbc','cnn','the guardian','ny times','reuters','associated press',
   ]},
-  { name: 'Sports',              icon: '🏆', color: '#e6824a', keywords: [
-    // show-specific
-    'wolverine','michigan','josh pate','college football show','locked on wolverine',
-    'cfb','big ten',
-    // generic
-    'sport','football','basketball','baseball','soccer','nfl','nba','mlb','nhl',
-    'tennis','golf','race','athlete','game','team','league','playoff','championship',
-    'fantasy','draft','formula','ufc','wrestling','olympic','transfer','fixture',
-  ]},
-  { name: 'News',                icon: '📰', color: '#5c8fe0', keywords: [
-    'today, explained','what\'s news','morning edition','up first',
-    'news','daily','today','breaking','press','media','morning','evening',
-    'update','headlines','briefing','roundup','bulletin','current events',
-    'npr','bbc','cnn','the guardian','ny times','reuters','associated press',
-  ]},
-  { name: 'Politics',            icon: '🗳️', color: '#c06090', keywords: [
+  { name: 'Politics & Law',           icon: '⚖️', color: '#c06090', keywords: [
+    'deep background','noah feldman',
     'politics','political','democrat','republican','congress','senate','election',
     'vote','ballot','govern','white house','policy','partisan','campaign',
     'liberal','conservative','parliament','cabinet','minister','prime minister',
-    'resistance','geopolitics','law','constitution','supreme court',
+    'geopolitics','constitution','supreme court','law','legal','lawyer','attorney',
+    'court','judge','legislation','regulation','civil liberties','criminal justice',
+    'reform','impeach','lobby','activism','protest','advocacy',
   ]},
-  { name: 'Business',            icon: '💼', color: '#e0a050', keywords: [
-    'business','entrepreneur','startup','hustle','leadership','management',
-    'sales','marketing','career','founder','executive','ceo','brand',
-    'scaling','customer','strategy','negotiat','pitch','b2b','saas',
-    'courage','candid','cashflow',
+  { name: 'History',                  icon: '🏛️', color: '#b45309', keywords: [
+    'revisionist history','malcolm gladwell',
+    'history','historical','war','world war','revolution','empire','civilization',
+    'ancient','medieval','renaissance','colonial','victorian','cold war',
+    'wwii','ww2','wwi','ww1','civil war','dynasty','monarchy','king','queen',
+    'era','century','decade','archive','chronicle','past','artifact',
+    'conquest','battle','slavery','migration','trade route','archaeolog',
   ]},
-  { name: 'Self-Improvement',    icon: '🧠', color: '#a78bfa', keywords: [
-    'slight change of plans','happiness lab','laurie santos','choiceology','behavioral',
+  { name: 'Relationships & Dating',   icon: '💕', color: '#fb7185', keywords: [
+    'esther perel','where should we begin','dear therapist','modern love','lori gottlieb',
+    'maybe you should talk to someone','dr. becky',
+    'relationship','dating','marriage','divorce','breakup','love','romance',
+    'partner','couple','intimacy','jealousy','communication','friendship','friend',
+    'lonely','loneliness','heartbreak','situationship','commitment','cheating',
+    'affair','polyamory','open relationship','dating app','tinder','bumble','hinge',
+    'matchmaking','single','connection','bond','trust','vulnerability','attachment',
+  ]},
+  { name: 'Psychology & Mental Health', icon: '💭', color: '#6366f1', keywords: [
+    'happiness lab','laurie santos','choiceology','katy milkman',
+    'slight change of plans','maya shankar','a slight change',
+    'therapy','therapist','psychologist','psychiatr','cbt','cognitive behavioral',
+    'trauma','ptsd','ocd','adhd','borderline','narcissist','mental health',
+    'emotional intelligence','burnout','stress','grief','psychoanaly',
+    'unconscious','ego','behavioral','decision making','wellbeing',
+    'resilience','coping','mindfulness','self-compassion','inner child',
+  ]},
+  { name: 'Self-Improvement',         icon: '🧠', color: '#a78bfa', keywords: [
     'self','improve','productivity','habit','mindset','motivation','success',
-    'goal','discipline','focus','growth','performance','potential','life coach',
-    'personal develop','procrastinat','time management','journaling','gratitude',
-    'confidence','decision making','psychology','resilience','wellbeing',
+    'goal','discipline','focus','growth','atomic','stoic','performance',
+    'potential','life coach','personal develop','procrastinat','time management',
+    'journaling','gratitude','confidence','hustle','level up','morning routine',
+    'system','optimization','accountability','execution',
   ]},
-  { name: 'Health & Wellness',   icon: '🌿', color: '#1ed760', keywords: [
-    'health','wellness','mental health','therapy','mindful','meditat',
-    'nutrition','fitness','diet','sleep','anxiety','depression','doctor',
-    'medical','chronic','biohack','longevity','gut','immune','hormone',
-    'recovery','rehab','sobriety','exercise','yoga','trauma','women\'s health',
+  { name: 'Health & Wellness',        icon: '🌿', color: '#1ed760', keywords: [
+    'health','wellness','fitness','nutrition','diet','sleep','doctor','medical',
+    'chronic','biohack','longevity','gut','immune','hormone','recovery','rehab',
+    'sobriety','exercise','yoga','training','workout','running','marathon',
+    'strength','muscle','weight loss','supplement','naturopath','aging',
   ]},
-  { name: 'Beauty',              icon: '💄', color: '#ec4899', keywords: [
+  { name: 'Arts & Entertainment',     icon: '🎨', color: '#d946ef', keywords: [
+    'broken record','rick rubin','bruce headlam','justin richmond',
+    'music','musician','artist','band','album','song','concert','tour',
+    'film','movie','cinema','television','tv show','streaming','netflix',
+    'celebrity','pop culture','entertainment','hollywood','broadway','theater',
+    'art','gallery','museum','creative','design','photography',
+    'grammy','oscar','emmy','golden globe','playlist','hip hop','rap','pop','rock','jazz',
+  ]},
+  { name: 'Storytelling',             icon: '📖', color: '#f472b6', keywords: [
+    'against the rules','at the letters',
+    'story','narrat','fiction','tales','stories','audio drama','radio drama',
+    'serial fiction','novel','memoir','essay','nonfiction','documentary',
+    'retold','untold','longreads','chapter','diary','letters',
+    'longform','reported','journalism',
+  ]},
+  { name: 'Society & Culture',        icon: '🌍', color: '#7c3aed', keywords: [
+    'society','culture','social','race','racism','racial','black','white',
+    'identity','gender','feminism','feminist','women','men','lgbtq','queer',
+    'gay','lesbian','trans','diversity','inclusion','equity','privilege',
+    'systemic','inequality','class','poverty','community','generation',
+    'millennial','gen z','boomer','immigration','immigrant','cancel',
+    'social justice','intersectional','minority','protest',
+  ]},
+  { name: 'Science & Nature',         icon: '🔬', color: '#38bdf8', keywords: [
+    'science','physics','biology','chemistry','space','nasa','cosmos',
+    'nature','math','neuroscience','genomics','evolution',
+    'environment','research','experiment','study','lab','discovery',
+    'astronomy','geology','ecology','zoology','botany','genetics','dna',
+    'quantum','astrophysics','oceanography','meteorology',
+  ]},
+  { name: 'Environment & Climate',    icon: '🌱', color: '#16a34a', keywords: [
+    'climate','sustainability','sustainable','green','renewable','solar','wind',
+    'carbon','emission','fossil fuel','oil spill','ocean','biodiversity',
+    'species','wildlife','conservation','deforestation','plastic','recycling',
+    'eco','global warming','energy transition','electric vehicle','ev',
+    'net zero','paris agreement','environmental',
+  ]},
+  { name: 'Comedy',                   icon: '😂', color: '#9c5ce0', keywords: [
+    'comedy','funny','laugh','humor','standup','stand-up','joke','improv',
+    'satire','parody','roast','silly','weird','bizarre','absurd','hilarious',
+    'banter','chat show','talk show','sketch',
+  ]},
+  { name: 'Food & Drink',             icon: '🍽️', color: '#f97316', keywords: [
+    'food','cook','recipe','chef','cuisine','restaurant','eating','flavor',
+    'wine','cocktail','beer','coffee','bake','pastry','tasting','culinary',
+    'farm','ingredient','foodie','kitchen','vegan','plant-based',
+    'michelin','gourmet','street food','ferment','sourdough',
+  ]},
+  { name: 'Travel & Adventure',       icon: '✈️', color: '#0ea5e9', keywords: [
+    'travel','trip','destination','journey','adventure','explore','wander',
+    'backpack','hotel','flight','cruise','itinerary','tourist','abroad',
+    'expat','nomad','road trip','bucket list','passport','visa',
+    'hiking','camping','outdoors','wilderness','trail','expedition',
+  ]},
+  { name: 'Beauty & Fashion',         icon: '💄', color: '#ec4899', keywords: [
     'beauty','makeup','skincare','skin care','cosmetic','foundation','lipstick',
     'mascara','concealer','blush','serum','moistur','toner','sunscreen','glow',
     'routine','sephora','ulta','fragrance','perfume','nails','eyeshadow',
     'contouring','brow','dermatol',
-  ]},
-  { name: 'Fashion',             icon: '👗', color: '#be185d', keywords: [
     'fashion','style','outfit','clothing','wardrobe','designer','runway',
     'trend','street style','vintage','sustainable fashion','thrift','luxury',
-    'vogue','editorial','model','couture','menswear','womenswear','accessories',
-    'capsule wardrobe','ootd',
+    'vogue','editorial','model','couture','accessories','capsule wardrobe','ootd',
   ]},
-  { name: 'Comedy',              icon: '😂', color: '#9c5ce0', keywords: [
-    'comedy','funny','laugh','humor','standup','stand-up','joke','improv',
-    'satire','parody','roast','silly','weird','bizarre','absurd','hilarious',
-    'banter','wtf','chat show','talk show',
-  ]},
-  { name: 'Science',             icon: '🔬', color: '#38bdf8', keywords: [
-    'science','physics','biology','chemistry','space','nasa','climate',
-    'nature','math','neuroscience','genomics','evolution','anthropolog',
-    'archaeolog','cosmos','environment','research','experiment','study','lab','discovery',
-  ]},
-  { name: 'Food & Drink',        icon: '🍽️', color: '#f97316', keywords: [
-    'food','cook','recipe','chef','cuisine','restaurant','eating','flavor',
-    'wine','cocktail','beer','coffee','bake','pastry','tasting','culinary',
-    'farm','ingredient','foodie','kitchen','vegan','plant-based',
-  ]},
-  { name: 'Travel',              icon: '✈️', color: '#0ea5e9', keywords: [
-    'travel','trip','destination','journey','adventure','explore','wander',
-    'backpack','hotel','flight','cruise','itinerary','tourist','abroad',
-    'expat','nomad','road trip','bucket list','hidden gem','passport','visa',
-  ]},
-  { name: 'Parenting',           icon: '👨‍👩‍👧', color: '#fbbf24', keywords: [
+  { name: 'Parenting & Family',       icon: '👨‍👩‍👧', color: '#fbbf24', keywords: [
     'parent','mom','dad','mother','father','child','children','kid','baby',
     'toddler','teen','family','raising','school','adolescent','pregnancy',
     'birth','postpartum','breastfeed','newborn','pediatric',
+    'siblings','foster','adoption','blended family','grandparent',
   ]},
-  { name: 'Spirituality',        icon: '🕊️', color: '#8b5cf6', keywords: [
+  { name: 'Spirituality & Religion',  icon: '🕊️', color: '#8b5cf6', keywords: [
     'spiritual','religion','faith','church','god','pray','meditation',
     'buddhis','christian','catholic','islam','jewish','hindu','sermon',
     'bible','quran','soul','consciousness','new age','astrology','tarot',
-    'manifestation','universe',
+    'manifestation','universe','sacred','awakening','enlighten',
   ]},
-  { name: 'Philosophy',          icon: '🧩', color: '#64748b', keywords: [
+  { name: 'Philosophy',               icon: '📜', color: '#64748b', keywords: [
     'philosophy','ethic','moral','logic','metaphysic','existential','stoic',
     'socrat','aristotle','plato','kant','nietzsche','meaning','free will',
     'truth','rational','thought experiment','ontology','epistemology',
