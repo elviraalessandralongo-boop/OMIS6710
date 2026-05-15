@@ -705,6 +705,139 @@ body {
 }
 .why-text { font-size: 0.88rem; color: var(--text2); line-height: 1.6; padding-top: 4px; }
 .why-text strong { color: var(--text); font-weight: 600; }
+
+/* ── HOME REVEAL OVERLAY ── */
+.home-reveal-overlay {
+  position: fixed;
+  inset: 0;
+  left: var(--sidebar);
+  background: var(--bg);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.home-reveal-text {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(1.6rem, 4vw, 2.8rem);
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+  max-width: 600px;
+  padding: 0 40px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  line-height: 1.2;
+}
+.home-reveal-text em { color: var(--accent2); font-style: normal; }
+
+/* ── HOME STAT CARDS ── */
+.home-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 32px;
+}
+.home-stat-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px 24px 20px;
+}
+.home-stat-num {
+  font-family: 'Fraunces', serif;
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent2);
+  margin-bottom: 8px;
+}
+.home-stat-label {
+  font-size: 0.82rem;
+  color: var(--text2);
+  line-height: 1.45;
+}
+.home-stat-label strong { color: var(--text); font-weight: 600; }
+
+/* ── HOME NARRATIVE THREAD ── */
+.home-narrative {
+  font-family: 'Fraunces', serif;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.5;
+  margin-bottom: 36px;
+  padding: 20px 24px;
+  border-left: 3px solid var(--accent);
+  background: rgba(29,185,84,0.05);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.home-narrative em { color: var(--accent2); font-style: normal; }
+
+/* ── START HERE CARD ── */
+.start-here-card {
+  background: var(--bg2);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 24px 28px;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 40px;
+}
+.start-here-card:hover {
+  border-color: var(--accent2);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(29,185,84,0.15);
+}
+.start-here-body { flex: 1; min-width: 0; }
+.start-here-label {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.start-here-tool {
+  font-family: 'Fraunces', serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+  line-height: 1.2;
+}
+.start-here-teaser {
+  font-size: 0.83rem;
+  color: var(--text2);
+  line-height: 1.5;
+}
+.start-here-arrow {
+  font-size: 1.6rem;
+  color: var(--accent);
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+.start-here-card:hover .start-here-arrow { transform: translateX(4px); }
+
+/* ── TRUST LINE ── */
+.trust-line {
+  font-size: 0.72rem;
+  color: var(--text3);
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* ── HOME PAGE FADE-IN ── */
+@keyframes homeFadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.home-content-wrap { animation: homeFadeIn 0.5s cubic-bezier(0.22,1,0.36,1) both; }
 </style>
 </head>
 <body>
@@ -1173,6 +1306,36 @@ function heroStatement(html) {
 }
 function toolVerdict(text) {
   return `<div class="tool-verdict">${text}</div>`;
+}
+
+function playHomeReveal(fragments, callback) {
+  const overlay = document.createElement('div');
+  overlay.className = 'home-reveal-overlay';
+  const textEl = document.createElement('div');
+  textEl.className = 'home-reveal-text';
+  overlay.appendChild(textEl);
+  document.body.appendChild(overlay);
+
+  const SHOW_MS = 320, FADE_MS = 120;
+  let idx = 0;
+
+  function showNext() {
+    if (idx >= fragments.length) {
+      // Dissolve entire overlay
+      overlay.style.transition = 'opacity 0.5s ease';
+      overlay.style.opacity = '0';
+      setTimeout(() => { overlay.remove(); callback(); }, 520);
+      return;
+    }
+    textEl.innerHTML = fragments[idx++];
+    textEl.style.opacity = '1';
+    setTimeout(() => {
+      textEl.style.opacity = '0';
+      setTimeout(showNext, FADE_MS);
+    }, SHOW_MS);
+  }
+
+  showNext();
 }
 
 function heroBlock(val, label, note, id) {
@@ -3012,15 +3175,66 @@ function renderHome() {
     return;
   }
 
+  // ── Core stats ──
   const totalMs = [...State.music, ...State.podcasts].reduce((s,r) => s+(r.ms_played||0), 0);
   const totalH  = Math.round(totalMs / 3600000);
+  const totalPlays = State.music.length + State.podcasts.length;
   const allTs   = [...State.music, ...State.podcasts].map(r => r.ts).sort();
   const yr0 = allTs[0]?.slice(0,4), yr1 = allTs[allTs.length-1]?.slice(0,4);
   const range = yr0 && yr1 && yr0 !== yr1 ? `${yr0}–${yr1}` : yr0 || '';
 
-  const specials = [];
+  // ── Top track ──
+  let topTrack = null, topTrackPlays = 0;
+  if (State.music.length) {
+    const td = {};
+    for (const r of State.music) {
+      const k = r.master_metadata_track_name;
+      if (!k) continue;
+      td[k] = (td[k] || 0) + 1;
+    }
+    const top = Object.entries(td).sort((a,b) => b[1]-a[1])[0];
+    if (top) { topTrack = top[0]; topTrackPlays = top[1]; }
+  }
 
-  // ── Special 1: Most recently abandoned podcast ──
+  // ── Unique artists ──
+  const uniqueArtists = State.music.length
+    ? new Set(State.music.map(r => r.master_metadata_album_artist_name).filter(Boolean)).size
+    : 0;
+
+  // ── Unique podcast shows ──
+  const uniqueShows = State.podcasts.length
+    ? new Set(State.podcasts.map(r => r.episode_show_name).filter(Boolean)).size
+    : 0;
+
+  // ── Most active day of week ──
+  let activeDayName = null;
+  if (State.music.length) {
+    const dayCounts = [0,0,0,0,0,0,0];
+    for (const r of State.music) dayCounts[new Date(r.ts).getDay()]++;
+    const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    activeDayName = dayNames[dayCounts.indexOf(Math.max(...dayCounts))];
+  }
+
+  // ── Most-played forgotten track (silent >90 days) ──
+  let forgottenTrack = null;
+  if (State.music.length) {
+    const now = new Date();
+    const tmap = {};
+    for (const r of State.music) {
+      const t = r.master_metadata_track_name; if (!t) continue;
+      const k = t;
+      if (!tmap[k]) tmap[k] = { track: t, plays: 0, lastPlayed: new Date(r.ts) };
+      tmap[k].plays++;
+      const d = new Date(r.ts);
+      if (d > tmap[k].lastPlayed) tmap[k].lastPlayed = d;
+    }
+    forgottenTrack = Object.values(tmap)
+      .filter(t => t.plays >= 15 && (now - t.lastPlayed) / 86400000 > 90)
+      .sort((a,b) => b.plays - a.plays)[0] || null;
+  }
+
+  // ── Podcast guilt candidate ──
+  let guiltPod = null;
   if (State.podcasts.length) {
     const INTENTIONAL = new Set(['searchquery','clickrow','playbtn']);
     const { showTypical, episodes } = buildPodcastData();
@@ -3033,133 +3247,142 @@ function renderHome() {
       const lastTs = new Date(Math.max(...intentPlays.map(r => new Date(r.ts).getTime())));
       if (!best || lastTs > best.lastTs) best = { ep, cr, lastTs };
     }
-    if (best) {
-      const pct = Math.round(best.cr * 100);
-      const ago = Math.floor((Date.now() - best.lastTs) / 86400000);
-      specials.push({
-        icon: '😬', tool: 'guilt-queue', label: 'Guilt Queue',
-        headline: escHtml(best.ep.name),
-        sub: escHtml(best.ep.show),
-        detail: `Started ${ago === 0 ? 'today' : ago + ' days ago'} · ~${pct}% completed`,
-        cta: 'See what you abandoned',
-      });
+    if (best) guiltPod = best;
+  }
+
+  // ── Reveal fragments (4–5 fast-flash data fragments) ──
+  const fragments = [];
+  if (totalPlays > 0) fragments.push(`<em>${fmtNum(totalPlays)}</em> plays…`);
+  if (totalH > 0) fragments.push(`<em>${fmtNum(totalH)} hours</em> of your life…`);
+  if (topTrack && topTrackPlays > 0) fragments.push(`One song, <em>${fmtNum(topTrackPlays)} times</em>…`);
+  if (forgottenTrack) fragments.push(`You ghosted <em>${escHtml(forgottenTrack.track)}</em>…`);
+  if (guiltPod) fragments.push(`You never finished <em>${escHtml(guiltPod.ep.show)}</em>…`);
+  if (uniqueArtists > 0 && fragments.length < 5) fragments.push(`<em>${fmtNum(uniqueArtists)}</em> artists discovered…`);
+  // Cap to 5
+  fragments.splice(5);
+
+  // ── Determine "Start Here" recommendation ──
+  let startHere = null;
+  if (guiltPod) {
+    const pct = Math.round(guiltPod.cr * 100);
+    startHere = {
+      tool: 'guilt-queue', icon: '😬', name: 'Guilt Queue',
+      teaser: `You started "${escHtml(guiltPod.ep.name)}" and only made it ${pct}% through. You're not alone — but you should know.`,
+    };
+  } else if (forgottenTrack) {
+    const days = Math.floor((new Date() - forgottenTrack.lastPlayed) / 86400000);
+    startHere = {
+      tool: 'forgotten', icon: '🗂️', name: 'Forgotten Plays',
+      teaser: `"${escHtml(forgottenTrack.track)}" has ${fmtNum(forgottenTrack.plays)} plays and you haven't touched it in ${fmtNum(days)} days. Start there.`,
+    };
+  } else if (topTrack && topTrackPlays >= 5) {
+    startHere = {
+      tool: 'peak-obsession', icon: '📈', name: 'Peak Obsession',
+      teaser: `You played "${escHtml(topTrack)}" ${fmtNum(topTrackPlays)} times. Find out what that says about you.`,
+    };
+  } else if (State.music.length) {
+    startHere = {
+      tool: 'personality', icon: '🧠', name: 'Your Listener Personality',
+      teaser: `${fmtNum(State.music.length + State.podcasts.length).toLocaleString()} plays later, here's the clearest picture of what kind of listener you actually are.`,
+    };
+  } else {
+    startHere = {
+      tool: 'guilt-queue', icon: '😬', name: 'Guilt Queue',
+      teaser: `See every podcast episode you started but quietly never finished.`,
+    };
+  }
+
+  // ── Narrative thread ──
+  let narrative = '';
+  if (totalH > 0 && range) {
+    if (topTrack && topTrackPlays > 20 && forgottenTrack) {
+      narrative = `Between <em>${range}</em> you listened for <em>${fmtNum(totalH)} hours</em> — obsessively replaying some things, quietly abandoning others, and leaving a trail that tells a very specific story.`;
+    } else if (topTrack && topTrackPlays > 20) {
+      narrative = `Across <em>${fmtNum(totalH)} hours</em> since <em>${yr0}</em>, your listening has a pattern: when you find something you like, you don't just listen — you repeat.`;
+    } else if (forgottenTrack) {
+      narrative = `<em>${fmtNum(totalH)} hours</em> of audio over <em>${range}</em> — a lot of it sincere, some of it half-finished, and a few songs that once meant everything and now sit in silence.`;
+    } else if (uniqueArtists > 100) {
+      narrative = `In <em>${range}</em> you listened to <em>${fmtNum(uniqueArtists)} different artists</em> for a total of <em>${fmtNum(totalH)} hours</em> — constantly searching for the next thing.`;
+    } else {
+      narrative = `<em>${fmtNum(totalH)} hours</em> of audio between <em>${range}</em>. The data is in. Here's what it says about you.`;
     }
   }
 
-  // ── Special 2: Most recent binge session ──
-  if (State.podcasts.length) {
-    const GAP_MS = 30 * 60 * 1000;
-    let sessions = [], cur = [State.podcasts[0]];
-    for (let i = 1; i < State.podcasts.length; i++) {
-      const endPrev   = new Date(State.podcasts[i-1].ts).getTime();
-      const startCurr = new Date(State.podcasts[i].ts).getTime() - (State.podcasts[i].ms_played || 0);
-      if (startCurr - endPrev <= GAP_MS) { cur.push(State.podcasts[i]); }
-      else { if (cur.length >= 3) sessions.push([...cur]); cur = [State.podcasts[i]]; }
-    }
-    if (cur.length >= 3) sessions.push([...cur]);
-    if (sessions.length) {
-      const recent = sessions.sort((a,b) => {
-        return (new Date(b[0].ts).getTime() - (b[0].ms_played||0)) - (new Date(a[0].ts).getTime() - (a[0].ms_played||0));
-      })[0];
-      const totalMs = recent.reduce((s,r) => s+(r.ms_played||0), 0);
-      const show = recent[0].episode_show_name;
-      const startMs = new Date(recent[0].ts).getTime() - (recent[0].ms_played||0);
-      const ago = Math.floor((Date.now() - startMs) / 86400000);
-      specials.push({
-        icon: '📚', tool: 'binge', label: 'Binge Sessions',
-        headline: escHtml(show),
-        sub: `${recent.length} episodes in a row`,
-        detail: `${fmtMs(totalMs)} · ${ago === 0 ? 'today' : ago + ' days ago'}`,
-        cta: 'See your marathon sessions',
-      });
-    }
+  // ── Stat cards (human language) ──
+  const statCards = [];
+  if (totalH > 0) {
+    statCards.push({
+      num: fmtNum(totalH),
+      label: `hours of your life, <strong>soundtrack included</strong>${range ? ` — from ${range}` : ''}`,
+    });
   }
-
-  // ── Special 3: Most-played track gone silent ──
-  if (State.music.length) {
-    const now = new Date();
-    const td = {};
-    for (const r of State.music) {
-      const track = r.master_metadata_track_name;
-      const artist = r.master_metadata_album_artist_name;
-      if (!track) continue;
-      const k = `${artist}||${track}`;
-      if (!td[k]) td[k] = { track, artist, plays: 0, lastPlayed: new Date(r.ts) };
-      td[k].plays++;
-      const d = new Date(r.ts);
-      if (d > td[k].lastPlayed) td[k].lastPlayed = d;
-    }
-    const forgotten = Object.values(td)
-      .filter(t => t.plays >= 10 && (now - t.lastPlayed) / 86400000 > 90)
-      .sort((a,b) => b.plays - a.plays)[0];
-    if (forgotten) {
-      const days = Math.floor((now - forgotten.lastPlayed) / 86400000);
-      specials.push({
-        icon: '🗂️', tool: 'forgotten', label: 'Forgotten Plays',
-        headline: escHtml(forgotten.track),
-        sub: escHtml(forgotten.artist),
-        detail: `${forgotten.plays} plays · not heard in ${fmtNum(days)} days`,
-        cta: 'See what you left behind',
-      });
-    }
+  if (State.music.length && uniqueArtists > 0) {
+    statCards.push({
+      num: fmtNum(uniqueArtists),
+      label: `artists you've actually <strong>spent time with</strong>`,
+    });
   }
-
-  // ── Special 4: Top artist discovery ──
-  if (State.music.length) {
-    const ad = {};
-    for (const r of State.music) {
-      const artist = r.master_metadata_album_artist_name;
-      if (!artist) continue;
-      const d = new Date(r.ts);
-      if (!ad[artist]) ad[artist] = { firstDate: d, plays: 0 };
-      if (d < ad[artist].firstDate) ad[artist].firstDate = d;
-      ad[artist].plays++;
-    }
-    const top = Object.entries(ad).sort((a,b) => b[1].plays - a[1].plays)[0];
-    if (top) {
-      const [artist, data] = top;
-      const year = data.firstDate.getFullYear();
-      specials.push({
-        icon: '✨', tool: 'discoveries', label: 'Discoveries',
-        headline: escHtml(artist),
-        sub: `First heard in ${year}`,
-        detail: `${fmtNum(data.plays)} total plays since you found them`,
-        cta: 'Explore your discoveries',
-      });
-    }
+  if (topTrack && topTrackPlays > 0) {
+    statCards.push({
+      num: fmtNum(topTrackPlays) + '×',
+      label: `plays of your most-repeated track — <strong>${escHtml(topTrack)}</strong>`,
+    });
   }
+  if (State.podcasts.length && uniqueShows > 0) {
+    statCards.push({
+      num: fmtNum(uniqueShows),
+      label: `podcast shows that got <strong>at least one episode</strong> of your time`,
+    });
+  } else if (activeDayName && !statCards.find(c => c.label.includes('day'))) {
+    statCards.push({
+      num: activeDayName,
+      label: `is when you listen <strong>the most</strong>`,
+    });
+  }
+  // Cap to 4 cards
+  statCards.splice(4);
 
-  let html = `
-    <div style="margin-bottom:36px">
-      <div style="font-family:'Fraunces',serif;font-size:2.2rem;font-weight:700;color:var(--text);line-height:1.15;margin-bottom:10px">Your data is in.<br><span style="color:var(--accent2)">Here's what we found.</span></div>
-      <div style="font-size:0.88rem;color:var(--text2);display:flex;gap:20px;flex-wrap:wrap">
-        ${State.music.length ? `<span><strong style="color:var(--text)">${fmtNum(State.music.length)}</strong> music plays</span>` : ''}
-        ${State.podcasts.length ? `<span><strong style="color:var(--text)">${fmtNum(State.podcasts.length)}</strong> podcast plays</span>` : ''}
-        <span><strong style="color:var(--text)">${fmtNum(totalH)}h</strong> of audio</span>
-        ${range ? `<span><strong style="color:var(--text)">${range}</strong></span>` : ''}
+  // ── Build HTML (hidden initially, revealed after animation) ──
+  const statsHtml = statCards.map(c => `
+    <div class="home-stat-card">
+      <div class="home-stat-num">${c.num}</div>
+      <div class="home-stat-label">${c.label}</div>
+    </div>`).join('');
+
+  const startHereHtml = startHere ? `
+    <div class="start-here-card" onclick="navigate('${startHere.tool}')">
+      <div class="start-here-body">
+        <div class="start-here-label">Where to start</div>
+        <div class="start-here-tool">${startHere.icon} ${startHere.name}</div>
+        <div class="start-here-teaser">${startHere.teaser}</div>
       </div>
-    </div>
-    <div style="font-size:0.62rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--text3);margin-bottom:14px">Today's Specials</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-bottom:40px">`;
+      <div class="start-here-arrow">›</div>
+    </div>` : '';
 
-  for (const s of specials) {
-    html += `
-      <div onclick="navigate('${s.tool}')" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px;cursor:pointer;transition:border-color 0.15s,transform 0.15s,box-shadow 0.15s" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.3)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='';this.style.boxShadow=''">
-        <div style="font-size:1.3rem;margin-bottom:10px">${s.icon}</div>
-        <div style="font-size:0.58rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">${s.label}</div>
-        <div style="font-size:0.95rem;font-weight:600;color:var(--text);margin-bottom:3px;line-height:1.3">${s.headline}</div>
-        <div style="font-size:0.78rem;color:var(--text2);margin-bottom:8px">${s.sub}</div>
-        <div style="font-size:0.75rem;color:var(--text3);margin-bottom:18px">${s.detail}</div>
-        <div style="font-size:0.78rem;font-weight:600;color:var(--accent2)">${s.cta} →</div>
-      </div>`;
-  }
-
-  html += `</div>
-    <div style="font-size:0.78rem;color:var(--text3);border-top:1px solid var(--border);padding-top:18px">
-      Use the sidebar to explore all ${specials.length < 10 ? 'ten' : ''} tools — or click the logo to come back here anytime.
+  const contentHtml = `
+    <div class="home-content-wrap">
+      <div style="font-family:'Fraunces',serif;font-size:2.1rem;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:32px">
+        Your data is in.<br><span style="color:var(--accent2)">Here's what it says about you.</span>
+      </div>
+      <div class="home-stats-grid">${statsHtml}</div>
+      ${narrative ? `<div class="home-narrative">${narrative}</div>` : ''}
+      ${startHereHtml}
+      <div class="trust-line">
+        <span style="font-size:0.85rem">🔒</span>
+        <span>Everything you see was calculated on your device. Your data never left.</span>
+      </div>
     </div>`;
 
-  el.innerHTML = html;
+  // ── Animation: only play once per session ──
+  if (!State.computed._homeAnimated && fragments.length > 0) {
+    State.computed._homeAnimated = true;
+    el.innerHTML = '';
+    playHomeReveal(fragments, () => {
+      el.innerHTML = contentHtml;
+    });
+  } else {
+    el.innerHTML = contentHtml;
+  }
 }
 
 /* ═══════════════════════════════════════════
