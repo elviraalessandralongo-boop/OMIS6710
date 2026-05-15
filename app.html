@@ -1168,6 +1168,11 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     </button>
     <div class="upload-status" id="sidebar-status">No file loaded</div>
   </div>
+
+  <div style="padding:16px 20px 20px;border-top:1px solid var(--border);margin-top:auto">
+    <div style="font-size:0.65rem;color:var(--text3);line-height:1.6">Spotify Wrapped tells you what you listened to.</div>
+    <div style="font-size:0.65rem;color:var(--text3);line-height:1.6">We tell you what it means.</div>
+  </div>
 </nav>
 
 <!-- MAIN -->
@@ -4200,10 +4205,11 @@ function renderHome() {
 
   const contentHtml = `
     <div class="home-content-wrap">
-      <div style="font-family:'Fraunces',serif;font-size:2.1rem;font-weight:700;color:var(--text);line-height:1.25;margin-bottom:52px">
+      <div style="font-family:'Fraunces',serif;font-size:2.1rem;font-weight:700;color:var(--text);line-height:1.25;margin-bottom:16px">
         You've given <span style="color:var(--accent2)">${fmtNum(totalH)} hours</span> of your life to music and podcasts${yr0 ? ` since ${yr0}` : ''}.<br>
         <span style="font-size:1.45rem;font-weight:300;font-style:italic;color:var(--text2)">Here's what that actually says about you.</span>
       </div>
+      <div style="font-size:0.82rem;color:var(--text3);margin-bottom:44px;font-style:italic">Spotify Wrapped tells you what you listened to. The Honest Listener tells you what that actually means.</div>
       ${startHereHtml}
       <div style="margin-top:40px;margin-bottom:8px">
         <button id="overview-toggle-btn" class="overview-toggle-btn" onclick="toggleOverview()">
