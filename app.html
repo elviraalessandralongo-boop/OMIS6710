@@ -838,6 +838,10 @@ body {
 /* ── HOME PAGE FADE-IN ── */
 @keyframes homeFadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .home-content-wrap { animation: homeFadeIn 0.5s cubic-bezier(0.22,1,0.36,1) both; }
+@keyframes dotPulse {
+  0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1.2); }
+}
 </style>
 </head>
 <body>
@@ -1534,14 +1538,21 @@ function renderGuiltQueue(windowIdx = 1) {
     const d = Math.floor((Date.now() - mostRecent.lastIntentTs) / 86400000);
     return d === 0 ? 'today' : d + ' days ago';
   })() : '';
-  const gqVerdict = results.length >= 20
-    ? 'Your podcast queue is a graveyard of good intentions. You keep starting, and the episodes keep waiting.'
-    : results.length >= 5
-    ? 'You\'re an optimist with a backlog — you believe every episode deserves a chance, even when you don\'t deliver one.'
-    : 'For someone who starts a lot, your follow-through is actually decent. This list is shorter than most.';
+  // Compute hours owed: sum of (1 - completionRate) * estimated episode ms
+  const owedMs = results.reduce((s, r) => {
+    const typLen = showTypical[r.show] || 1800000;
+    return s + typLen * (1 - r.completionRate);
+  }, 0);
+  const owedHours = Math.round(owedMs / 3600000 * 10) / 10;
+  const topItemComp = results[0]?.completionRate || 0;
+  const gqVerdict = topItemComp > 0.8
+    ? 'You were so close on some of these. One more commute would do it.'
+    : avgComp < 0.2
+    ? 'You\'re not finishing these. You\'re collecting them.'
+    : 'Your intentions are great. Your follow-through, less so.';
   let html = `
     <div class="toggle-row">${toggleHtml}</div>
-    ${heroStatement(`You've intentionally started <em>${results.length} episode${results.length !== 1 ? 's' : ''}</em> and walked away — across <em>${shows} podcast${shows !== 1 ? 's' : ''}</em>. The most recent was "${escHtml(mostRecent?.name || '')}", abandoned ${daysAgoStr}.`)}
+    ${heroStatement(`You owe <em>${owedHours} hours</em> of listening you promised yourself you'd do — across <em>${shows} podcast${shows !== 1 ? 's' : ''}</em>, all started and quietly abandoned.`)}
     <div class="stat-row">
       <div class="stat-box"><div class="stat-box-val" id="gq-shows">0</div><div class="stat-box-label">Podcasts Abandoned</div></div>
       <div class="stat-box"><div class="stat-box-val" id="gq-avg">—</div><div class="stat-box-label">Avg Completion</div></div>
@@ -1556,6 +1567,9 @@ function renderGuiltQueue(windowIdx = 1) {
   top.forEach((ep, i) => {
     const pct = Math.round(ep.completionRate * 100);
     const lastTried = ep.lastIntentTs.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    const triedAgainTag = ep.intentPlays > 1
+      ? `<span style="font-size:0.72rem;color:var(--amber);font-style:italic;margin-left:8px">You tried again. Still didn't finish.</span>`
+      : '';
     html += `<li>
       <div class="result-num">${i+1}</div>
       <div class="result-body">
@@ -1565,6 +1579,7 @@ function renderGuiltQueue(windowIdx = 1) {
           <span class="result-stat">Last tried: <strong>${lastTried}</strong></span>
           <span class="result-stat">Started <strong>${ep.totalPlays}×</strong></span>
           <span class="result-stat">~Completed: <strong>${pct}%</strong></span>
+          ${triedAgainTag}
         </div>
         <div class="bar-wrap" style="margin-top:8px;max-width:300px">
           <div class="bar-fill bar-red" data-width="${pct}%" style="width:0"></div>
@@ -1627,11 +1642,18 @@ function renderHooked() {
   const top = results.slice(0, SHOW_MAX);
   const hkShows = new Set(results.map(r => r.show)).size;
   const hkAvgComp = results.reduce((s,r) => s + r.completionRate, 0) / results.length;
-  const hkVerdict = results.length >= 10
-    ? 'The algorithm has you figured out. Your taste is more legible to machines than you think.'
-    : 'You\'re not easily baited — but when something\'s good enough, you know it without trying.';
+  // Count shows where first play was autoplay AND completion > 80%
+  const autoHookedShows = new Set(results.filter(r => r.completionRate >= 0.8 && !['searchquery','clickrow','playbtn'].includes(r.firstStart)).map(r => r.show)).size;
+  const hookHero = autoHookedShows === 0
+    ? `You found every single one of your shows deliberately — nothing slipped through unless you chose it.`
+    : `<em>${autoHookedShows} of your favourite shows found you</em> — you didn't find them. They autoplayed, and you stayed.`;
+  const hkVerdict = autoHookedShows > 5
+    ? 'The algorithm knows you better than you know yourself.'
+    : autoHookedShows >= 1
+    ? 'You resisted the algorithm — mostly. But not always.'
+    : 'You\'re deliberate. Nothing slips through unless you chose it.';
   let html = `
-    ${heroStatement(`Despite never choosing to start them, <em>${results.length} episode${results.length !== 1 ? 's' : ''}</em> pulled you in and kept you listening — you stayed an average of <em>${Math.round(hkAvgComp*100)}%</em> through content you didn't pick.`)}
+    ${heroStatement(hookHero)}
     <div class="stat-row">
       <div class="stat-box"><div class="stat-box-val" id="hk-shows">0</div><div class="stat-box-label">Podcasts That Hooked You</div></div>
       <div class="stat-box"><div class="stat-box-val" id="hk-avg">—</div><div class="stat-box-label">Avg Completion</div></div>
@@ -1653,15 +1675,21 @@ function renderHooked() {
     unknown:     'unknown',
   }[r] || r || 'Spotify autoplayed it');
 
+  const INTENTIONAL_SET = new Set(['searchquery','clickrow','playbtn']);
   top.forEach((ep, i) => {
     const pct = Math.round(ep.completionRate * 100);
     const how = reasonLabel(ep.firstStart);
     const firstDate = ep.firstTs ? new Date(ep.firstTs).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : null;
+    const wasAutoplay = !INTENTIONAL_SET.has(ep.firstStart);
+    const accidentalNote = wasAutoplay && firstDate
+      ? `<div style="font-size:0.75rem;color:var(--text3);font-style:italic;margin-top:4px;margin-bottom:4px">First played ${firstDate}. Never searched for it. Couldn't stop.</div>`
+      : '';
     html += `<li>
       <div class="result-num">${i+1}</div>
       <div class="result-body">
         <div class="result-title">${escHtml(ep.name)}</div>
         <div class="result-sub">${escHtml(ep.show)}</div>
+        ${accidentalNote}
         <div class="result-stats">
           <span class="result-stat">First played: <strong>${firstDate || '—'}</strong></span>
           <span class="result-stat">How it started: <strong>${how}</strong></span>
@@ -1753,14 +1781,30 @@ function renderBinge(windowIdx = 3) {
   const biLongestMs = Math.max(...sorted.map(s => s.reduce((t,r) => t+(r.ms_played||0),0)));
   const sessionByCount = [...sorted].sort((a,b) => b.length - a.length)[0];
   const topBingeShow = sessionByCount ? sessionByCount[0].episode_show_name : '';
-  const biVerdict = sorted.length >= 15
-    ? 'You don\'t listen to podcasts. You disappear into them. That\'s not a habit — it\'s a personality trait.'
-    : sorted.length >= 5
-    ? 'When something hooks you, you follow it down. The rabbit hole is where you live.'
-    : 'You have the impulse to binge — you just don\'t always act on it.';
+  // Find the single longest session by time
+  const longestSession = [...sorted].sort((a,b) =>
+    b.reduce((t,r)=>t+(r.ms_played||0),0) - a.reduce((t,r)=>t+(r.ms_played||0),0)
+  )[0];
+  const longestSessionMs = longestSession ? longestSession.reduce((t,r)=>t+(r.ms_played||0),0) : 0;
+  const longestSessionH = Math.round(longestSessionMs / 3600000 * 10) / 10;
+  const longestSessionStart = longestSession ? new Date(new Date(longestSession[0].ts).getTime() - (longestSession[0].ms_played||0)) : null;
+  const longestSessionDay = longestSessionStart ? longestSessionStart.toLocaleDateString('en-US',{weekday:'long'}) : '';
+  const longestSessionEps = longestSession ? longestSession.length : 0;
+  // Show-count per show across all sessions for "you disappear into it" verdict
+  const showSessionCounts = {};
+  for (const s of sorted) {
+    const show = s[0].episode_show_name;
+    if (show) showSessionCounts[show] = (showSessionCounts[show]||0) + 1;
+  }
+  const mostBingedShow = Object.entries(showSessionCounts).sort((a,b)=>b[1]-a[1])[0];
+  const biVerdict = longestSessionH > 4
+    ? 'When something grips you, nothing else exists.'
+    : mostBingedShow && mostBingedShow[1] >= 3
+    ? `You don't just like "${escHtml(mostBingedShow[0])}". You disappear into it.`
+    : 'You go deep. Just not often.';
   let html = `
     <div class="toggle-row">${toggleHtml}</div>
-    ${heroStatement(`You've gone on <em>${sorted.length} back-to-back listening session${sorted.length !== 1 ? 's' : ''}</em> — your deepest was <em>${biMost} episodes of "${escHtml(topBingeShow)}"</em> in a row (${fmtMs(biLongestMs)} straight).`)}
+    ${heroStatement(`Your longest rabbit hole was <em>${longestSessionH} hours on a ${escHtml(longestSessionDay)}</em>. You listened to <em>${longestSessionEps} episodes</em> back to back — and then, eventually, you surfaced.`)}
     <div class="stat-row">
       <div class="stat-box"><div class="stat-box-val" id="bi-most">0</div><div class="stat-box-label">Most Episodes in One Go</div></div>
       <div class="stat-box"><div class="stat-box-val" id="bi-longest">—</div><div class="stat-box-label">Longest Session</div></div>
@@ -1777,12 +1821,16 @@ function renderBinge(windowIdx = 3) {
     const shows = [...new Set(session.map(r => r.episode_show_name))];
     const mainShow = shows[0];
     const multiShow = shows.length > 1 ? ` + ${shows.length-1} other${shows.length>2?'s':''}` : '';
+    const flightNote = totalMs > 3 * 3600000
+      ? `<div style="font-size:0.72rem;color:var(--text3);font-style:italic;margin-top:4px">(That's longer than most flights.)</div>`
+      : '';
     html += `<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap">
         <div>
           <div class="card-rank">Session ${i+1} · ${date}</div>
           <div class="card-title">${escHtml(mainShow)}${escHtml(multiShow)}</div>
           <div class="card-sub">${session.length} episodes · ${fmtMs(totalMs)}</div>
+          ${flightNote}
         </div>
         <div style="text-align:right">
           <div style="font-family:'Fraunces',serif;font-size:1.8rem;font-weight:700;color:var(--accent2)">${session.length}</div>
@@ -1855,8 +1903,10 @@ function renderEarlyAdopterOffline(shows, showFirst, showMs, el) {
   const clientId = State.clientId || '';
   const oldestShow = shows.reduce((a, s) => showFirst[s] < showFirst[a] ? s : a, shows[0]);
   const oldestYear = oldestShow ? new Date(showFirst[oldestShow]).getFullYear() : '';
+  // Guess: majority of shows found early vs late (can't know without API, so show teaser)
+  const eaOfflineHero = `You follow <em>${shows.length} podcast${shows.length !== 1 ? 's' : ''}</em> — connect Spotify to find out how many you found before everyone else. The oldest in your history dates to <em>${oldestYear}</em>.`;
   el.innerHTML = `
-    ${heroStatement(`You follow <em>${shows.length} podcast${shows.length !== 1 ? 's' : ''}</em> — connect Spotify to find out how many you found before everyone else. The oldest in your history dates to <em>${oldestYear}</em>.`)}
+    ${heroStatement(eaOfflineHero)}
     <div class="card" style="margin-bottom:24px">
       <div class="card-title" style="margin-bottom:8px">Connect Spotify to reveal your adopter profile</div>
       <div class="card-sub" style="margin-bottom:20px">This tool checks how popular each of your shows is on Spotify today — so you can see if you were ahead of the curve or riding the wave.</div>
@@ -1992,11 +2042,18 @@ function renderEarlyAdopterResults(results, el) {
     const { tier, color, icon, desc } = classifyAdopter(r.popularity, r.firstTs);
     const firstDate = new Date(r.firstTs).toLocaleDateString('en-US',{month:'short',year:'numeric'});
     const hrs = Math.round(r.ms / 3600000 * 10) / 10;
+    const monthsAgo = Math.round((Date.now() - r.firstTs) / (30 * 86400000));
+    const earlyTiers = new Set(['Trendsetter','Early Adopter','Niche Hunter']);
+    const adopterNote = earlyTiers.has(tier)
+      ? `<span style="font-size:0.7rem;color:var(--accent2);font-style:italic"> · You found this ${monthsAgo} months before it peaked.</span>`
+      : tier === 'Late Majority'
+      ? `<span style="font-size:0.7rem;color:var(--amber);font-style:italic"> · This was already huge when you showed up.</span>`
+      : '';
     return `<div style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--border)">
       <span style="font-size:1.3rem;flex-shrink:0">${icon}</span>
       <div style="flex:1;min-width:0">
         <div style="font-size:0.88rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(r.show)}</div>
-        <div style="font-size:0.74rem;color:var(--text3)">First listened ${firstDate} · ${hrs}h total · Popularity ${r.popularity ?? '—'}/100</div>
+        <div style="font-size:0.74rem;color:var(--text3)">First listened ${firstDate} · ${hrs}h total · Popularity ${r.popularity ?? '—'}/100${adopterNote}</div>
       </div>
       <div style="text-align:right;flex-shrink:0">
         <div style="font-size:0.78rem;font-weight:700;color:${color}">${tier}</div>
@@ -2018,17 +2075,24 @@ function renderEarlyAdopterResults(results, el) {
   }).join('');
 
   const earlyCount = (tierCounts['Trendsetter']||0) + (tierCounts['Early Adopter']||0) + (tierCounts['Niche Hunter']||0);
+  const lateCount = (tierCounts['Late Majority']||0) + (tierCounts['Mainstream']||0);
   const earlyPct = Math.round(earlyCount / results.length * 100);
+  const latePct = Math.round(lateCount / results.length * 100);
+  const eaHero = earlyCount > lateCount
+    ? `You were ahead of the curve on <em>${earlyCount} out of your top ${results.length} shows</em> — listening before most people found them.`
+    : lateCount > earlyCount
+    ? `Most of your shows found you <em>after everyone else already knew them</em> — ${latePct}% arrived late to your ears.`
+    : `Half trendsetter, half follower — your adopter pattern <em>depends on the topic</em>.`;
   const eaVerdict = dominant?.[0] === 'Trendsetter' || dominant?.[0] === 'Niche Hunter'
-    ? 'Your recommendations come from instinct, not trending lists. People should ask you what to listen to next.'
+    ? 'You find things. They don\'t find you.'
     : dominant?.[0] === 'Late Majority'
-    ? 'You arrive fashionably late and enjoy things without apology. The algorithm caught up with you, not the other way around.'
+    ? 'You\'re not chasing trends. You arrive when you\'re ready.'
     : dominant?.[0] === 'Mainstream'
-    ? 'You and the zeitgeist are in sync. You\'re not chasing trends — you just happen to live there.'
+    ? 'Your taste is independent — category by category.'
     : 'You span the spectrum. Your taste doesn\'t fit neatly into a single adopter profile.';
 
   el.innerHTML = `
-    ${heroStatement(`Out of your <em>${results.length} analyzed shows</em>, <em>${earlyPct}% earned you early-adopter status</em> — you listened before most people found them. Your overall profile: ${overallTier.icon} <em>${overallTier.tier}</em>.`)}
+    ${heroStatement(eaHero)}
     <div class="stat-row" style="margin-bottom:28px">
       <div class="stat-box">
         <div class="stat-box-val" style="color:${overallTier.color}">${overallTier.icon}</div>
@@ -2365,14 +2429,19 @@ function renderPodBubble() {
   const topPctRound = Math.round(topPct * 100);
   const topShowNames = topCat ? topCat.shows.slice(0,2).map(s => `"${escHtml(s.show)}"`).join(' and ') : '';
   const topHrs = topCat ? Math.round(topCat.ms / 3600000 * 10) / 10 : 0;
+  const bubbleHero = topPctRound >= 60
+    ? `<em>${topPctRound}% of your podcast time</em> is one topic: ${escHtml(topCat?.name || '')}. You know what you like.`
+    : topPctRound < 35
+    ? `You range across <em>${categories.length} different topics</em>. No single one owns your attention — you're genuinely curious.`
+    : `<em>${topPctRound}% of your podcast time</em> is ${escHtml(topCat?.name || '')} — you've spent <em>${topHrs} hours</em> in that world.`;
   const bubbleVerdictText = topPctRound >= 60
-    ? 'Your podcast feed is a mirror, not a window. You know what you think — you\'re just looking for confirmation.'
-    : topPctRound >= 40
-    ? 'You have a home category, but you do venture out. You always come back.'
-    : 'You\'re genuinely curious. No single topic owns your attention — and that\'s rarer than you think.';
+    ? 'You\'re a specialist. You go deep, not wide.'
+    : topPctRound < 35
+    ? 'You\'re genuinely curious about the world. That\'s rarer than it sounds.'
+    : 'You have two worlds you return to. Everything else is occasional.';
 
   el.innerHTML = `
-    ${heroStatement(`<em>${topPctRound}% of your podcast time</em> is ${topCat?.name || 'one category'} — you've spent <em>${topHrs} hours</em> in that world. ${topShowNames} lead the way.`)}
+    ${heroStatement(bubbleHero)}
     <div style="display:grid;grid-template-columns:180px 1fr;gap:24px;align-items:start;margin-bottom:28px">
       <div>${donutSvg}</div>
       <div class="card">${catRows}</div>
@@ -2426,11 +2495,16 @@ function renderOneHit() {
   const topByPct = [...results].sort((a,b) => b.pct - a.pct)[0];
   const ohTopPct = Math.round(topByPct.pct * 100);
   const justOneTrack = results.filter(r => r.uniqueTracks === 1).length;
-  const ohVerdict = justOneTrack >= 5
-    ? `You collect songs, not artists — ${justOneTrack} of these you've only ever played one track by. That\'s curation, not laziness.`
+  const topByPlays = [...results].sort((a,b) => b.topTrackPlays - a.topTrackPlays)[0];
+  const ohVerdict = results.length > 10
+    ? 'You fall for songs, not artists. There\'s nothing wrong with that.'
+    : topByPlays && topByPlays.topTrackPlays > 100
+    ? `"${escHtml(topByPlays.topTrack)}" by ${escHtml(topByPlays.artist)} has ${fmtNum(topByPlays.topTrackPlays)}+ plays. That\'s not a favourite. That\'s a fixation.`
+    : results.length < 5
+    ? 'You mostly go deep on artists. When you find someone, you explore.'
     : 'You know what you like. One perfect song is enough — the rest of a discography is optional.';
   let html = `
-    ${heroStatement(`You know <em>${results.length} artists</em> by essentially one song — <em>"${escHtml(topByPct.topTrack)}"</em> by ${escHtml(topByPct.artist)} is ${ohTopPct}% of everything you've played by them.`)}
+    ${heroStatement(`You have <em>${results.length} artists</em> you've played dozens of times — but only ever one song. You're not a fan. <em>You're obsessed with a moment.</em>`)}
     <div class="stat-row">
       <div class="stat-box"><div class="stat-box-val" id="oh-top">—</div><div class="stat-box-label">Highest Concentration</div></div>
     </div>
@@ -2443,12 +2517,14 @@ function renderOneHit() {
     const note = onlySong
       ? `The only song you've ever played by this artist`
       : `${pct}% of your ${r.total} plays — out of ${r.uniqueTracks} tracks`;
+    const obsessionNote = `${fmtNum(r.topTrackPlays)} plays. Always "${escHtml(r.topTrack)}". Never anything else.`;
     html += `<li>
       <div class="result-num">${i+1}</div>
       <div class="result-body">
         <div class="result-title">${escHtml(r.topTrack)}</div>
         <div class="result-sub">${escHtml(r.artist)}</div>
-        <div style="font-size:0.78rem;color:var(--text3);margin-bottom:8px;margin-top:2px;font-style:italic">${note}</div>
+        <div style="font-size:0.78rem;color:var(--text3);margin-bottom:4px;margin-top:2px;font-style:italic">${note}</div>
+        <div style="font-size:0.75rem;color:var(--text2);margin-bottom:8px;font-style:italic">${obsessionNote}</div>
         <div class="result-stats">
           <span class="result-stat">Total artist plays: <strong>${r.total}</strong></span>
           <span class="result-stat">This song: <strong>${r.topTrackPlays}×</strong></span>
@@ -2534,11 +2610,18 @@ function renderPeakObsession() {
 
   const topByDrop = [...results].sort((a,b) => b.dropOff - a.dropOff)[0];
   const peakDateStr = topByDrop.peakDate.toLocaleDateString('en-US',{month:'short',year:'numeric'});
-  const poVerdict = topByDrop.dropOff >= 15
-    ? 'Your obsessions are intense and brief. You love things hard and move on fast — and you\'ll do it again with your current favourites.'
-    : 'You cycle through tracks quickly, but each one leaves a mark before you let it go.';
+  const lastPlayedStr = topByDrop.lastPlayed.toLocaleDateString('en-US',{month:'short',year:'numeric'});
+  const monthsSincePeak = Math.round((Date.now() - topByDrop.lastPlayed) / (30 * 86400000));
+  // Check if most peaks are followed by zero plays
+  const burnedOut = results.filter(r => r.recentPlays === 0).length;
+  const gradualFade = results.filter(r => r.recentPlays > 0 && r.recentPlays < r.peakCount / 2).length;
+  const poVerdict = burnedOut > results.length / 2
+    ? 'You love hard and move on fast.'
+    : gradualFade > results.length / 2
+    ? 'You don\'t abandon songs. You just slowly outgrow them.'
+    : 'A few of these never got old. You know which ones.';
   let html = `
-    ${heroStatement(`Your biggest burnout was <em>"${escHtml(topByDrop.track)}"</em> by ${escHtml(topByDrop.artist)} — <em>${topByDrop.peakCount} plays in a single month</em> at its peak (${peakDateStr}), down to just ${topByDrop.recentPlays} in the last 30 days.`)}
+    ${heroStatement(`Your most intense obsession was <em>"${escHtml(topByDrop.track)}"</em> by ${escHtml(topByDrop.artist)} — <em>${topByDrop.peakCount} plays in a single month</em> in ${peakDateStr}. You haven't touched it in <em>${monthsSincePeak} months</em>.`)}
     <div class="stat-row">
       <div class="stat-box"><div class="stat-box-val" id="po-total">0</div><div class="stat-box-label">Tracks Analyzed</div></div>
       <div class="stat-box"><div class="stat-box-val" id="po-drop">0</div><div class="stat-box-label">Biggest Peak-to-Now Drop</div></div>
@@ -2548,12 +2631,14 @@ function renderPeakObsession() {
 
   results.forEach((r, i) => {
     const peakDateStr = r.peakDate.toLocaleDateString('en-US',{month:'short',year:'numeric'});
+    const lastPlayedStr2 = r.lastPlayed.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
     const spark = buildSparkline(r.weeks, 80, 28);
     html += `<li>
       <div class="result-num">${i+1}</div>
       <div class="result-body">
         <div class="result-title">${escHtml(r.track)}</div>
-        <div class="result-sub" style="margin-bottom:8px">${escHtml(r.artist)}</div>
+        <div class="result-sub" style="margin-bottom:4px">${escHtml(r.artist)}</div>
+        <div style="font-size:0.72rem;color:var(--text3);font-style:italic;margin-bottom:8px">Peaked ${peakDateStr}. Last played ${lastPlayedStr2}.</div>
         <div style="margin-bottom:8px">${spark}</div>
         <div class="result-stats">
           <span class="result-stat">Peak 4-wk: <strong>${r.peakCount} plays</strong></span>
@@ -2651,9 +2736,11 @@ function renderForgotten(windowIdx = 0) {
   const worthRevisiting = results.filter(r => r.plays >= 20).slice(0, FG_MAX);
   const safeToCut = results.filter(r => r.plays < 20).slice(0, FG_MAX);
   const avgSilentDays = Math.round(results.reduce((s,r) => s + r.daysSince, 0) / results.length);
-  const fgVerdict = worthRevisiting.length >= safeToCut.length
-    ? 'The songs you forgot were the real ones. The algorithm hasn\'t served them back — but you could go first.'
-    : 'Most of what went quiet probably ran its course. But the top half of that first list deserves another listen.';
+  const fgVerdict = worthRevisiting.length > 10
+    ? 'Your past self had good taste. It\'s worth checking in.'
+    : safeToCut.length > worthRevisiting.length
+    ? 'Most of these ran their course. That\'s okay.'
+    : 'Some of these are accidents of a particular moment. Others you genuinely forgot.';
 
   function fgRow(r, i, maxDs) {
     const lastStr = r.lastPlayed.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
@@ -2679,7 +2766,7 @@ function renderForgotten(windowIdx = 0) {
 
   let html = `
     <div class="toggle-row">${toggleHtml}</div>
-    ${heroStatement(`<em>${results.length} songs</em> you played repeatedly and then went silent on — the most played, <em>"${escHtml(results[0].track)}"</em> by ${escHtml(results[0].artist)}, got ${results[0].plays} plays before you walked away.`)}
+    ${heroStatement(`You've abandoned <em>${results.length} songs</em> that you once played on repeat. Some of them are worth finding again — your past self knew something.`)}
     <div class="stat-row">
       <div class="stat-box"><div class="stat-box-val" id="fg-plays">—</div><div class="stat-box-label">Most Played (Then Abandoned)</div></div>
       <div class="stat-box"><div class="stat-box-val" id="fg-days">—</div><div class="stat-box-label">Longest Silence</div></div>
@@ -2856,29 +2943,36 @@ function renderBrain() {
   }
 
   // Hero statement: use the most specific insight available
+  // Count years of history for "without noticing" line
+  const allBrainRecs = [...State.music, ...State.podcasts];
+  const brainYears = allBrainRecs.length > 0
+    ? Math.max(1, Math.round((Date.now() - Math.min(...allBrainRecs.map(r => new Date(r.ts).getTime()))) / (365 * 86400000)))
+    : 1;
   let brainHero, brainVerdict;
   if (State.music.length && State.podcasts.length) {
     if (podToMusicHour > 0 && musicToPodHour > 0) {
-      brainHero = `On weekdays your listening switches from podcasts to music at <em>${fmtHour(podToMusicHour)}</em>, then flips back to podcasts at <em>${fmtHour(musicToPodHour)}</em> — a daily rhythm your data can set a watch to.`;
+      brainHero = `Every weekday at <em>${fmtHour(podToMusicHour)}</em> you switch from podcasts to music, and back again at <em>${fmtHour(musicToPodHour)}</em>. You've been doing this for <em>${brainYears} year${brainYears !== 1 ? 's' : ''}</em> without noticing.`;
     } else if (podToMusicHour > 0) {
-      brainHero = `You start your day with podcasts and switch to music around <em>${fmtHour(podToMusicHour)}</em> — two distinct modes, clearly separated.`;
+      brainHero = `You start your day with podcasts and switch to music around <em>${fmtHour(podToMusicHour)}</em> — two distinct modes, clearly separated. You've held this pattern for <em>${brainYears} year${brainYears !== 1 ? 's' : ''}</em>.`;
     } else if (musicToPodHour > 0) {
       brainHero = `Music carries you through to <em>${fmtHour(musicToPodHour)}</em>, then you switch to podcasts — thought mode on, feel mode off.`;
+    } else if (!State.podcasts.length) {
+      brainHero = `You're a music person around the clock — podcasts only show up occasionally in your data.`;
     } else {
-      brainHero = `Music peaks at <em>${fmtHour(mPeak)}</em> and podcasts at <em>${fmtHour(pPeak)}</em> — two different modes for two different headspaces.`;
+      brainHero = `Music peaks at <em>${fmtHour(mPeak)}</em> and podcasts at <em>${fmtHour(pPeak)}</em> — you have no single pattern. Your listening is genuinely spontaneous.`;
     }
     if (wdTotal > 0 && weTotal > 0) {
       const wkRatio = wePerDay / wdPerDay;
       brainVerdict = wkRatio > 1.3
-        ? 'Weekends are your real listening time. The rest of the week is just a warm-up.'
+        ? 'You save the good listening for when you have time to actually pay attention.'
         : wkRatio < 0.7
-        ? 'Commutes and routines own your listening. You\'re a functional listener, not a leisure one.'
-        : 'Your listening is steady across the week — you don\'t need a special occasion to press play.';
+        ? 'Your listening is more structured than you think. It runs on a schedule.'
+        : 'You listen when you feel like it. No routine, no rules.';
     } else {
       brainVerdict = 'Audio is your constant companion. The heatmap tells you when — the content tells you who you are.';
     }
   } else if (State.music.length) {
-    brainHero = `Your music peaks at <em>${fmtHour(mPeak)}</em> every day — that\'s when you want to feel something.`;
+    brainHero = `You're a music person around the clock — podcasts only show up on occasional mornings. Music peaks at <em>${fmtHour(mPeak)}</em>.`;
     brainVerdict = 'Pure music listener. No podcasts competing for time — just you and the sound.';
   } else {
     brainHero = `Your podcast listening peaks around <em>${fmtHour(pPeak)}</em> — that\'s when you want to learn or think.`;
@@ -3116,6 +3210,39 @@ function renderPersonality() {
     const totalPlays = State.music.length + State.podcasts.length;
     whyItems.push({ num: fmtNum(totalHours) + 'h', color, text: `<strong>${fmtNum(totalHours)} hours of audio</strong> across ${fmtNum(totalPlays)} plays. That\'s a significant data set — and it all points to the same conclusion.` });
   }
+  // Per-label provocation sentence
+  const provocation = {
+    'The Collector': 'You curate beautifully. You just never actually consume.',
+    'The Comfort Seeker': 'You\'ve found what you like. The question is whether you\'re still looking.',
+    'The Deep Diver': 'When you commit, you really commit. Everything else gets ignored.',
+    'The Tastemaker': 'You were there first. You just don\'t talk about it enough.',
+    'The Specialist': 'You know your lane. The question is whether the lane is wide enough.',
+    'The Grazer': 'A little of everything, a lot of nothing. Or maybe that\'s just called being curious.',
+  }[label] || '';
+
+  // Three supporting stats as sentences
+  const supportingSentences = [];
+  if (podCompletionRate !== null) {
+    const owedH = Math.round((1 - podCompletionRate) * (State.podcasts.reduce((s,r)=>s+(r.ms_played||0),0) / 3600000) * 10) / 10;
+    supportingSentences.push(`You've left <strong>${fmtNum(Math.round(owedH))} hours</strong> of podcasts unfinished.`);
+  }
+  if (top20Pct !== null) {
+    supportingSentences.push(`<strong>${Math.round(top20Pct * 100)}%</strong> of your music plays are the same 20 songs.`);
+  }
+  const longestBingeMs = State.computed._bingeSessions && State.computed._bingeSessions.length
+    ? Math.max(...State.computed._bingeSessions.map(s => s.reduce((t,r)=>t+(r.ms_played||0),0)))
+    : 0;
+  const longestBingeH = Math.round(longestBingeMs / 3600000 * 10) / 10;
+  if (longestBingeH > 0) {
+    supportingSentences.push(`Your longest binge was <strong>${longestBingeH} hours</strong> straight.`);
+  } else {
+    supportingSentences.push(`<strong>${fmtNum(totalHours)} hours</strong> of audio across your entire history.`);
+  }
+
+  const supportingHtml = supportingSentences.slice(0,3).map(s =>
+    `<div style="font-size:0.95rem;color:var(--text2);line-height:1.7;padding:10px 0;border-bottom:1px solid var(--border)">${s}</div>`
+  ).join('');
+
   const whyHtml = whyItems.slice(0, 3).map(w =>
     `<div class="why-item">
       <div class="why-num" style="color:${w.color}">${w.num}</div>
@@ -3123,13 +3250,19 @@ function renderPersonality() {
     </div>`
   ).join('');
 
-  el.innerHTML = `
-    <div style="margin-bottom:48px">
-      <div class="personality-label personality-reveal-label" style="color:${color}">${label}</div>
-      <div class="personality-reveal-desc" style="margin-bottom:32px">
-        <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);margin-bottom:16px">Here's why</div>
-        ${whyHtml}
+  // Build the full content but reveal it with a dramatic animation
+  const fullContentHtml = `
+    <div style="background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:var(--radius);padding:48px 40px 40px;margin-bottom:32px;text-align:center">
+      <div id="personality-label-reveal" class="personality-label personality-reveal-label" style="color:${color};font-size:3.2rem;margin-bottom:12px;opacity:0;transition:opacity 0.8s ease">${label}</div>
+      <div id="personality-subhead" style="font-family:'Fraunces',serif;font-style:italic;font-size:1.15rem;color:var(--text2);margin-bottom:32px;opacity:0;transition:opacity 0.6s ease">Here's why.</div>
+      <div id="personality-supporting" style="max-width:480px;margin:0 auto;opacity:0;transition:opacity 0.6s ease">
+        ${supportingHtml}
       </div>
+      <div id="personality-provocation" style="margin-top:32px;font-family:'Fraunces',serif;font-size:1.05rem;font-style:italic;color:${color};opacity:0;transition:opacity 0.6s ease">${provocation}</div>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:16px">
+      <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);margin-bottom:16px">The evidence</div>
+      ${whyHtml}
     </div>
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:16px">
       <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin-bottom:12px">Your listening over time</div>
@@ -3162,6 +3295,49 @@ function renderPersonality() {
         <div><div style="font-size:1.2rem;font-weight:700;color:var(--text)">${fmtNum(bingeSessions)}</div><div style="font-size:0.75rem;color:var(--text3)">Binge sessions</div></div>
       </div>
     </div>`;
+
+  // Show loading dots for 1.5s, then reveal
+  if (!State.computed._personalityAnimated) {
+    State.computed._personalityAnimated = true;
+    el.innerHTML = `<div id="personality-loading" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:280px;gap:24px">
+      <div style="font-family:'Fraunces',serif;font-style:italic;font-size:1.1rem;color:var(--text3)">Analysing your listening history…</div>
+      <div style="display:flex;gap:8px" id="loading-dots">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);animation:dotPulse 1.2s ease-in-out infinite"></div>
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);animation:dotPulse 1.2s ease-in-out 0.2s infinite"></div>
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);animation:dotPulse 1.2s ease-in-out 0.4s infinite"></div>
+      </div>
+    </div>`;
+    setTimeout(() => {
+      el.innerHTML = fullContentHtml;
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          const lbl = document.getElementById('personality-label-reveal');
+          if (lbl) lbl.style.opacity = '1';
+          setTimeout(() => {
+            const sub = document.getElementById('personality-subhead');
+            if (sub) sub.style.opacity = '1';
+            setTimeout(() => {
+              const sup = document.getElementById('personality-supporting');
+              if (sup) sup.style.opacity = '1';
+              setTimeout(() => {
+                const prov = document.getElementById('personality-provocation');
+                if (prov) prov.style.opacity = '1';
+              }, 400);
+            }, 400);
+          }, 500);
+        }, 80);
+      });
+    }, 1500);
+  } else {
+    el.innerHTML = fullContentHtml;
+    // Instant show without animation on re-visit
+    setTimeout(() => {
+      ['personality-label-reveal','personality-subhead','personality-supporting','personality-provocation'].forEach(id => {
+        const el2 = document.getElementById(id);
+        if (el2) el2.style.opacity = '1';
+      });
+    }, 50);
+  }
 
 }
 
