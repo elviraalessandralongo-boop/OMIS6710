@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>The Honest Listener</title>
+<title>Receipts — Your Spotify Data, Honestly</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1058,7 +1058,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 <!-- SIDEBAR -->
 <nav id="sidebar">
   <div class="sidebar-logo" onclick="navigate('home')" style="cursor:pointer" title="Back to overview">
-    <h1>The Honest Listener</h1>
+    <h1>Receipts</h1>
     <span>Spotify Analytics</span>
   </div>
 
@@ -1171,7 +1171,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
   <div style="padding:16px 20px 20px;border-top:1px solid var(--border);margin-top:auto">
     <div style="font-size:0.65rem;color:var(--text3);line-height:1.6">Spotify Wrapped tells you what you listened to.</div>
-    <div style="font-size:0.65rem;color:var(--text3);line-height:1.6">We tell you what it means.</div>
+    <div style="font-size:0.65rem;color:var(--text3);line-height:1.6">Receipts shows you what it means.</div>
   </div>
 </nav>
 
@@ -1180,8 +1180,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
   <!-- LANDING -->
   <div id="page-landing" class="page active">
-    <div class="landing-title">The Honest<br>Listener</div>
-    <p class="landing-positioning">Spotify Wrapped tells you what you listened to.<br><em>The Honest Listener</em> tells you what that actually means.</p>
+    <div class="landing-title">Your listening history<br>doesn't lie.<br><span style="color:var(--accent2)">Receipts</span> does the reading.</div>
+    <p class="landing-positioning">Spotify Wrapped tells you what you listened to.<br><em>Receipts</em> shows you what it actually says about you.</p>
 
     <div class="landing-teaser-row">
       <div class="landing-teaser-card">
@@ -1222,7 +1222,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     <input type="file" id="file-input" accept=".zip" aria-label="Upload Spotify zip file">
 
     <p style="margin-top:28px;font-size:0.75rem;color:var(--text3);line-height:1.6">
-      Your data never leaves your device. No account needed. No tracking.
+      Receipts runs entirely on your device. Your data never leaves.
     </p>
     <div style="margin-top:8px;font-size:0.75rem;color:var(--text3);line-height:1.6">
       Don't have your data yet? Request it at
@@ -3525,7 +3525,7 @@ function downloadPersonalityCard() {
     }
 
     // ── Logo ──
-    fillCenter('THE HONEST LISTENER', '700 22px "Space Grotesk", sans-serif', '#6e6e8a', 80);
+    fillCenter('RECEIPTS', '700 22px "Space Grotesk", sans-serif', '#6e6e8a', 80);
 
     // Accent pip under logo
     ctx.strokeStyle = accent;
@@ -3571,7 +3571,7 @@ function downloadPersonalityCard() {
     fillWrapped(provocation, 'italic 400 34px "Fraunces", serif', accent, provY, S - PAD * 2 - 60, 52);
 
     // ── Footer ──
-    fillCenter('thehonestlistener.app', '400 18px "Space Grotesk", sans-serif', '#3e3e52', S - 52);
+    fillCenter('receipts.app', '400 18px "Space Grotesk", sans-serif', '#3e3e52', S - 52);
 
     // ── Download ──
     canvas.toBlob(blob => {
@@ -4241,7 +4241,7 @@ function renderHome() {
         You've given <span style="color:var(--accent2)">${fmtNum(totalH)} hours</span> of your life to music and podcasts${yr0 ? ` since ${yr0}` : ''}.<br>
         <span style="font-size:1.45rem;font-weight:300;font-style:italic;color:var(--text2)">Here's what that actually says about you.</span>
       </div>
-      <div style="font-size:0.82rem;color:var(--text3);margin-bottom:44px;font-style:italic">Spotify Wrapped tells you what you listened to. The Honest Listener tells you what that actually means.</div>
+      <div style="font-size:0.82rem;color:var(--text3);margin-bottom:44px;font-style:italic">Spotify Wrapped tells you what you listened to. Receipts shows you what it actually says about you.</div>
       ${startHereHtml}
       <div style="margin-top:40px;margin-bottom:8px">
         <button id="overview-toggle-btn" class="overview-toggle-btn" onclick="toggleOverview()">
