@@ -176,15 +176,6 @@ body {
 }
 .page.active { display: block; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-
-/* ── PERSONALITY FULL-VIEWPORT MODE ── */
-body.personality-mode #sidebar {
-  width: 0;
-  min-width: 0;
-  overflow: hidden;
-  border-right: none;
-  transition: width 0.4s cubic-bezier(0.4,0,0.2,1), min-width 0.4s cubic-bezier(0.4,0,0.2,1);
-}
 #sidebar { transition: width 0.4s cubic-bezier(0.4,0,0.2,1), min-width 0.4s cubic-bezier(0.4,0,0.2,1); }
 
 /* ── MOBILE SIDEBAR ── */
@@ -235,7 +226,6 @@ body.personality-mode #sidebar {
   }
   body.sidebar-open #sidebar { transform: translateX(0); }
   body.sidebar-open #sidebar-overlay { display: block; }
-  body.personality-mode #sidebar { transform: translateX(-100%) !important; }
 }
 
 @media (max-width: 768px) {
@@ -1316,7 +1306,6 @@ function navigate(pageId) {
   const nav = document.querySelector('[data-page="' + pageId + '"]');
   if (nav) nav.classList.add('active');
   // Personality page gets full-viewport treatment
-  document.body.classList.toggle('personality-mode', pageId === 'personality');
   // Close mobile sidebar on navigation
   document.body.classList.remove('sidebar-open');
   if (State.music.length || State.podcasts.length) renderTool(pageId);
