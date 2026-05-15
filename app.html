@@ -554,9 +554,6 @@ body {
     <div class="nav-item" data-page="binge">
       <span class="nav-icon">📚</span> Binge Sessions
     </div>
-    <div class="nav-item" data-page="plugged-in">
-      <span class="nav-icon">📡</span> How Plugged In
-    </div>
   </div>
 
   <div class="sidebar-section">
@@ -646,16 +643,6 @@ body {
       <div class="page-tagline">"Three episodes in. Not stopping now."</div>
     </div>
     <div id="binge-content"></div>
-  </div>
-
-  <!-- TOOL 4: HOW PLUGGED IN -->
-  <div id="page-plugged-in" class="page">
-    <div class="page-header">
-      <div class="page-header-tag">Podcast · Tool 04</div>
-      <div class="page-title">How Plugged In Are You?</div>
-      <div class="page-tagline">"Do you listen to what matters — or just what's on?"</div>
-    </div>
-    <div id="plugged-in-content"></div>
   </div>
 
   <!-- TOOL 5: ONE HIT WONDER -->
@@ -967,7 +954,6 @@ function renderTool(pageId) {
     'guilt-queue':    renderGuiltQueue,
     'hooked':         renderHooked,
     'binge':          renderBinge,
-    'plugged-in':     renderPluggedIn,
     'one-hit':        renderOneHit,
     'peak-obsession': renderPeakObsession,
     'forgotten':      renderForgotten,
@@ -1326,95 +1312,8 @@ function renderBinge(windowIdx = 3) {
 }
 
 /* ═══════════════════════════════════════════
-   TOOL 4: HOW PLUGGED IN (Spotify OAuth PKCE)
+   SPOTIFY OAUTH PKCE HELPERS
 ═══════════════════════════════════════════ */
-function renderPluggedIn() {
-  const el = document.getElementById('plugged-in-content');
-
-  // Check if we're returning from OAuth
-  const params = new URLSearchParams(window.location.search);
-  const hashParams = new URLSearchParams(window.location.hash.replace('#','?').slice(1));
-  const code = params.get('code') || hashParams.get('code');
-  const returnedState = params.get('state') || hashParams.get('state');
-  const savedState = sessionStorage.getItem('pkce_state');
-  const savedVerifier = sessionStorage.getItem('pkce_verifier');
-
-  if (code && returnedState && savedState && returnedState === savedState) {
-    el.innerHTML = `<div class="card" style="text-align:center;padding:40px"><div class="empty-icon">⚡</div><div class="card-title" style="font-size:1.1rem">Fetching Spotify data…</div></div>`;
-    exchangeCodeAndFetch(code, savedVerifier).catch(err => {
-      el.innerHTML = `<div class="landing-error" style="display:block">${err.message}</div>` + buildPluggedInForm();
-    });
-    return;
-  }
-
-  if (State.spotifyToken) {
-    fetchPluggedInData();
-    return;
-  }
-
-  el.innerHTML = buildPluggedInForm();
-}
-
-function buildPluggedInForm() {
-  return `
-    <div class="oauth-box">
-      <div style="font-size:2rem;margin-bottom:12px">📡</div>
-      <div style="font-size:1rem;font-weight:600;margin-bottom:8px">Connect Spotify</div>
-      <div style="font-size:0.82rem;color:var(--text2);margin-bottom:20px;line-height:1.6">
-        This tool compares your listening against top podcasts by category. It only reads public chart data — not your private account.
-        You need a Spotify Developer app Client ID. <a href="https://developer.spotify.com/dashboard" target="_blank" style="color:var(--accent)">Create one here</a> and set the redirect URI to the local path of this file on your machine.
-      </div>
-      <div class="client-id-row">
-        <input class="client-id-input" id="client-id-input" type="text" placeholder="Spotify Client ID">
-      </div>
-      <button class="oauth-btn" onclick="startOAuth()">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-        Connect Spotify
-      </button>
-    </div>
-    <div style="text-align:center;font-size:0.78rem;color:var(--text3)">
-      No Spotify account? You can still view the categories and requirements below.
-    </div>
-    ${buildPluggedInCategories()}`;
-}
-
-function buildPluggedInCategories() {
-  const categories = ['News','Business','Health & Fitness','Society & Culture'];
-  return `<div style="margin-top:32px">
-    <div style="font-size:0.9rem;font-weight:600;color:var(--text2);margin-bottom:16px">Tracked Categories</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
-      ${categories.map(c => `<div class="card-sm">
-        <div style="font-size:1.2rem;margin-bottom:6px">${categoryIcon(c)}</div>
-        <div class="card-title" style="font-size:0.88rem">${c}</div>
-        <div class="card-sub">Top 50 podcasts tracked</div>
-      </div>`).join('')}
-    </div>
-  </div>`;
-}
-
-function categoryIcon(cat) {
-  const m = { 'News':'📰','Business':'💼','Health & Fitness':'💪','Society & Culture':'🌐' };
-  return m[cat] || '🎙️';
-}
-
-async function startOAuth() {
-  const clientId = document.getElementById('client-id-input').value.trim();
-  if (!clientId) { alert('Please enter your Spotify Client ID'); return; }
-  State.clientId = clientId;
-  localStorage.setItem('spotify_client_id', clientId);
-
-  const verifier = generateRandomString(64);
-  const challenge = await generateCodeChallenge(verifier);
-  const state = generateRandomString(16);
-  sessionStorage.setItem('pkce_verifier', verifier);
-  sessionStorage.setItem('pkce_state', state);
-  sessionStorage.setItem('pkce_client_id', clientId);
-
-  const redirectUri = window.location.href.split('?')[0];
-  const scope = 'user-top-read';
-  const url = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&code_challenge_method=S256&code_challenge=${challenge}&state=${state}&scope=${encodeURIComponent(scope)}`;
-  window.location.href = url;
-}
 
 function generateRandomString(len) {
   const arr = new Uint8Array(len);
@@ -1425,98 +1324,6 @@ async function generateCodeChallenge(verifier) {
   const enc = new TextEncoder().encode(verifier);
   const hash = await crypto.subtle.digest('SHA-256', enc);
   return btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
-}
-
-async function exchangeCodeAndFetch(code, verifier) {
-  const clientId = sessionStorage.getItem('pkce_client_id') || State.clientId;
-  const redirectUri = window.location.href.split('?')[0];
-  const res = await fetch('https://accounts.spotify.com/api/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ client_id: clientId, grant_type: 'authorization_code', code, redirect_uri: redirectUri, code_verifier: verifier })
-  });
-  if (!res.ok) throw new Error('Token exchange failed: ' + await res.text());
-  const data = await res.json();
-  State.spotifyToken = data.access_token;
-  sessionStorage.removeItem('pkce_state');
-  sessionStorage.removeItem('pkce_verifier');
-  // Clean URL
-  window.history.replaceState({}, document.title, window.location.pathname);
-  await fetchPluggedInData();
-}
-
-async function fetchPluggedInData() {
-  const el = document.getElementById('plugged-in-content');
-  el.innerHTML = `<div class="card" style="text-align:center;padding:40px"><div class="empty-icon">🔍</div><div class="card-title">Searching Spotify podcasts…</div></div>`;
-
-  const categories = [
-    { name: 'News', query: 'news' },
-    { name: 'Business', query: 'business' },
-    { name: 'Health & Fitness', query: 'health fitness' },
-    { name: 'Society & Culture', query: 'society culture' },
-  ];
-
-  // Get user's podcast listening in last 90 days
-  const cutoff = new Date(Date.now() - 90 * 86400000);
-  const recentPods = State.podcasts.filter(r => new Date(r.ts) >= cutoff);
-  const listenedShows = new Set(recentPods.map(r => r.episode_show_name?.toLowerCase().trim()));
-
-  const results = [];
-  for (const cat of categories) {
-    try {
-      const res = await fetch(
-        `https://api.spotify.com/v1/search?q=${encodeURIComponent(cat.query)}&type=show&market=US&limit=50`,
-        { headers: { Authorization: `Bearer ${State.spotifyToken}` } }
-      );
-      if (!res.ok) throw new Error(res.status);
-      const data = await res.json();
-      const shows = (data.shows?.items || []).filter(Boolean);
-      const matched = shows.filter(s => listenedShows.has(s.name?.toLowerCase().trim()));
-      // Score: matching 5 of the top 50 = 100; linear up to that point
-      const score = Math.min(Math.round(matched.length * 20), 100);
-      results.push({ ...cat, shows, matched, score });
-    } catch(e) {
-      results.push({ ...cat, shows: [], matched: [], score: 0, error: true });
-    }
-  }
-
-  const avgScore = results.reduce((s,r) => s+r.score,0) / results.length;
-  State.computed.pluggedInScore = avgScore;
-
-  let html = `
-    <div class="stat-row">
-      <div class="stat-box"><div class="stat-box-val" id="pi-avg">0</div><div class="stat-box-label">Avg Plugged-In Score</div></div>
-      <div class="stat-box"><div class="stat-box-val" id="pi-shows">0</div><div class="stat-box-label">Shows Matched</div></div>
-      <div class="stat-box"><div class="stat-box-val" id="pi-recent">0</div><div class="stat-box-label">Recent Podcast Plays</div></div>
-    </div>`;
-
-  for (const cat of results) {
-    html += `<div class="card" style="margin-bottom:20px">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-        <span style="font-size:1.5rem">${categoryIcon(cat.name)}</span>
-        <div>
-          <div class="card-title">${cat.name}</div>
-          ${cat.error ? '<div class="card-sub" style="color:var(--red)">Failed to fetch data</div>' : `<div class="card-sub">${cat.matched.length} of ${cat.shows.length} top shows in your history</div>`}
-        </div>
-        <div style="margin-left:auto;text-align:right">
-          <div style="font-family:\'Fraunces\',serif;font-size:2rem;font-weight:700;color:var(--accent2)">${cat.score}</div>
-          <div style="font-size:0.72rem;color:var(--text3)">/ 100</div>
-        </div>
-      </div>
-      <div class="meter-bar-wrap"><div class="meter-bar-fill" data-width="${cat.score}%" style="width:0"></div></div>
-      ${cat.matched.length ? `<div style="margin-top:16px"><div style="font-size:0.75rem;color:var(--text3);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em">You've listened to</div>${cat.matched.slice(0,5).map(s=>`<div style="font-size:0.82rem;color:var(--accent2);margin-bottom:4px">✓ ${escHtml(s.name)}</div>`).join('')}</div>` : ''}
-      ${cat.shows.length > 0 && cat.matched.length < cat.shows.length ? `<div style="margin-top:12px"><div style="font-size:0.75rem;color:var(--text3);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em">Missed</div>${cat.shows.filter(s=>!cat.matched.includes(s)).slice(0,3).map(s=>`<div style="font-size:0.8rem;color:var(--text3);margin-bottom:4px">→ ${escHtml(s.name)}</div>`).join('')}</div>` : ''}
-    </div>`;
-  }
-
-  el.innerHTML = html;
-  const totalMatched = results.reduce((s,r) => s + r.matched.length, 0);
-  animateCount(document.getElementById('pi-avg'), Math.round(avgScore));
-  animateCount(document.getElementById('pi-shows'), totalMatched);
-  animateCount(document.getElementById('pi-recent'), recentPods.length);
-  setTimeout(() => {
-    el.querySelectorAll('[data-width]').forEach(el => { el.style.width = el.dataset.width; });
-  }, 100);
 }
 
 /* ═══════════════════════════════════════════
@@ -2042,10 +1849,7 @@ function renderPersonality() {
   }
   const bingeSessions = State.computed.bingeSessions;
 
-  // 4. Plugged-in score
-  const pluggedInScore = State.computed.pluggedInScore;
-
-  // 5. Total listening hours
+  // 4. Total listening hours
   const totalMsMusic = State.music.reduce((s,r) => s + (r.ms_played||0), 0);
   const totalMsPod   = State.podcasts.reduce((s,r) => s + (r.ms_played||0), 0);
   const totalHours   = Math.round((totalMsMusic + totalMsPod) / 3600000);
@@ -2075,13 +1879,6 @@ function renderPersonality() {
     stats.push({ label: 'Binge sessions identified', val: bingeSessions, note: '3+ episodes back to back' });
     if (top20Pct) stats.push({ label: 'Music concentration', val: Math.round(top20Pct*100) + '%', note: 'in top 20 tracks' });
     if (podCompletionRate !== null) stats.push({ label: 'Podcast completion rate', val: Math.round(podCompletionRate*100) + '%', note: '' });
-  } else if (pluggedInScore !== undefined && pluggedInScore > 70) {
-    label = 'The Tastemaker';
-    desc = 'You\'re tuned in. Your listening aligns with what\'s influential, relevant, and on the cultural pulse. Whether by design or pure instinct, you end up listening to what matters. Other people find things through you — they just don\'t know it yet.';
-    color = 'var(--accent2)';
-    stats.push({ label: 'Plugged-in score', val: Math.round(pluggedInScore), note: 'across categories' });
-    if (top20Pct) stats.push({ label: 'Music concentration', val: Math.round(top20Pct*100) + '%', note: 'in top 20 tracks' });
-    stats.push({ label: 'Binge sessions', val: bingeSessions, note: '' });
   } else {
     label = 'The Grazer';
     desc = 'You move across the landscape of sound without getting too attached. A bit of music here, a podcast there, something new when the mood strikes. You\'re not obsessed, you\'re not systematic — you just listen when something calls to you, and stop when it doesn\'t. A life well-grazed.';
@@ -2141,7 +1938,6 @@ function renderPersonality() {
     { rule: 'Podcast completion', val: podCompletionRate !== null ? Math.round(podCompletionRate*100)+'%' : 'N/A', threshold: '< 40% → The Collector', met: podCompletionRate !== null && podCompletionRate < 0.4 },
     { rule: 'Music concentration', val: top20Pct !== null ? Math.round(top20Pct*100)+'%' : 'N/A', threshold: '> 60% → The Comfort Seeker', met: top20Pct !== null && top20Pct > 0.6 },
     { rule: 'Binge sessions', val: bingeSessions, threshold: '> 5 → The Deep Diver', met: bingeSessions > 5 },
-    { rule: 'Plugged-in score', val: pluggedInScore !== undefined ? Math.round(pluggedInScore) : 'N/A', threshold: '> 70 → The Tastemaker', met: pluggedInScore !== undefined && pluggedInScore > 70 },
   ];
 
   el.innerHTML = `
@@ -2565,18 +2361,6 @@ window.addEventListener('DOMContentLoaded', () => {
   // Lock nav items until data is loaded
   document.querySelectorAll('.nav-item').forEach(n => n.classList.add('locked'));
 
-  const params = new URLSearchParams(window.location.search);
-  const code = params.get('code');
-  const state = params.get('state');
-  const savedState = sessionStorage.getItem('pkce_state');
-  if (code && state && savedState && state === savedState) {
-    // OAuth callback — navigate directly bypassing the data guard
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    const page = document.getElementById('page-plugged-in');
-    if (page) page.classList.add('active');
-    renderPluggedIn();
-  }
 });
 </script>
 </body>
