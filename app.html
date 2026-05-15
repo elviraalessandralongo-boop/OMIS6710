@@ -2256,11 +2256,32 @@ function renderBinge(windowIdx = 3) {
     return startB - startA;
   });
 
-  const biMost = Math.max(...sorted.map(s=>s.length));
-  const biLongestMs = Math.max(...sorted.map(s => s.reduce((t,r) => t+(r.ms_played||0),0)));
-  const sessionByCount = [...sorted].sort((a,b) => b.length - a.length)[0];
-  const topBingeShow = sessionByCount ? sessionByCount[0].episode_show_name : '';
-  // Find the single longest session by time
+  // ── Biggest Day Ever (all-time, music + podcasts combined) ──
+  const bigDayMs = {}, bigDayRecs = {};
+  for (const r of [...State.music, ...State.podcasts]) {
+    const loc = tsToLocal(r.ts);
+    const key = `${loc.getFullYear()}-${String(loc.getMonth()).padStart(2,'0')}-${String(loc.getDate()).padStart(2,'0')}`;
+    bigDayMs[key] = (bigDayMs[key] || 0) + (r.ms_played || 0);
+    if (!bigDayRecs[key]) bigDayRecs[key] = [];
+    bigDayRecs[key].push(r);
+  }
+  const bigDayKey = Object.entries(bigDayMs).sort((a,b)=>b[1]-a[1])[0]?.[0];
+  const bigDayTotalH = bigDayKey ? Math.round(bigDayMs[bigDayKey] / 3600000 * 10) / 10 : 0;
+  const bigDayDate = bigDayKey ? (() => {
+    const [y,m,d] = bigDayKey.split('-').map(Number);
+    const dt = new Date(y, m, d);
+    return dt.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  })() : null;
+  const bigDayTop3 = bigDayKey ? (() => {
+    const tally = {};
+    for (const r of bigDayRecs[bigDayKey]) {
+      const name = r.episode_show_name || r.master_metadata_album_artist_name;
+      if (name) tally[name] = (tally[name] || 0) + (r.ms_played || 0);
+    }
+    return Object.entries(tally).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n])=>n);
+  })() : [];
+
+  // ── Longest binge session ──
   const longestSession = [...sorted].sort((a,b) =>
     b.reduce((t,r)=>t+(r.ms_played||0),0) - a.reduce((t,r)=>t+(r.ms_played||0),0)
   )[0];
@@ -2269,19 +2290,70 @@ function renderBinge(windowIdx = 3) {
   const longestSessionStart = longestSession ? new Date(new Date(longestSession[0].ts).getTime() - (longestSession[0].ms_played||0)) : null;
   const longestSessionDay = longestSessionStart ? longestSessionStart.toLocaleDateString('en-US',{weekday:'long'}) : '';
   const longestSessionEps = longestSession ? longestSession.length : 0;
-  // Show-count per show across all sessions for "you disappear into it" verdict
+
+  // ── Show-count per show across sessions ──
   const showSessionCounts = {};
   for (const s of sorted) {
     const show = s[0].episode_show_name;
     if (show) showSessionCounts[show] = (showSessionCounts[show]||0) + 1;
   }
   const mostBingedShow = Object.entries(showSessionCounts).sort((a,b)=>b[1]-a[1])[0];
+
+  // ── Trigger Pattern Analysis ──
+  const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const dayCounts = {}, hourCounts = {};
+  for (const s of sorted) {
+    const startMs = new Date(s[0].ts).getTime() - (s[0].ms_played || 0);
+    const loc = tsToLocal(new Date(startMs).toISOString());
+    const day = DAY_NAMES[loc.getDay()];
+    const hr = loc.getHours();
+    dayCounts[day] = (dayCounts[day] || 0) + 1;
+    hourCounts[hr] = (hourCounts[hr] || 0) + 1;
+  }
+  const topDay = Object.entries(dayCounts).sort((a,b)=>b[1]-a[1])[0];
+  const topHour = Object.entries(hourCounts).sort((a,b)=>b[1]-a[1])[0];
+  const topDayPct = topDay ? Math.round(topDay[1] / sorted.length * 100) : 0;
+  const fmtHourLocal = h => { h = Number(h); if(h===0) return 'midnight'; if(h===12) return 'noon'; return h < 12 ? `${h}am` : `${h-12}pm`; };
+
+  // ── Aftermath: what happened to each session's show after the binge ──
+  const sessionAftermath = sorted.map(session => {
+    const bingeEnd = new Date(session[session.length-1].ts).getTime();
+    const bingeStart = new Date(session[0].ts).getTime() - (session[0].ms_played || 0);
+    const show = session[0].episode_show_name;
+    if (!show) return 'nothing';
+    const allShowPlays = State.podcasts.filter(r => r.episode_show_name === show);
+    const after  = allShowPlays.filter(r => new Date(r.ts).getTime() > bingeEnd + 3600000);
+    const before = allShowPlays.filter(r => new Date(r.ts).getTime() < bingeStart - 3600000);
+    if (before.length === 0 && after.length === 0) return 'finished';
+    return after.length > 0 ? 'kept' : 'nothing';
+  });
+  const nothingCount = sessionAftermath.filter(a => a === 'nothing').length;
+  const ghostPattern = nothingCount / sorted.length > 0.5;
+
   const biVerdict = longestSessionH > 4
     ? 'When something grips you, nothing else exists.'
     : mostBingedShow && mostBingedShow[1] >= 3
     ? `You don't just like "${escHtml(mostBingedShow[0])}". You disappear into it.`
     : 'You go deep. Just not often.';
+
+  const aftermathTag = a => a === 'kept'
+    ? `<span style="font-size:0.7rem;font-weight:700;color:var(--accent2);background:var(--accent-dim);border:1px solid rgba(29,185,84,0.25);padding:2px 8px;border-radius:4px">You kept going</span>`
+    : a === 'finished'
+    ? `<span style="font-size:0.7rem;font-weight:700;color:var(--accent2);background:var(--accent-dim);border:1px solid rgba(29,185,84,0.25);padding:2px 8px;border-radius:4px">You finished it</span>`
+    : `<span style="font-size:0.7rem;font-weight:700;color:var(--amber);background:var(--amber-dim);border:1px solid rgba(224,160,80,0.25);padding:2px 8px;border-radius:4px">Then nothing</span>`;
+
+  // ── Biggest Day hero card ──
+  const bigDayHtml = bigDayDate ? `
+    <div style="background:linear-gradient(135deg,var(--bg2) 0%,rgba(29,185,84,0.06) 100%);border:1px solid rgba(29,185,84,0.2);border-radius:var(--radius);padding:32px;margin-bottom:32px">
+      <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);margin-bottom:12px">Your Biggest Listening Day Ever</div>
+      <div style="font-family:'Fraunces',serif;font-size:1.6rem;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:8px">
+        ${escHtml(bigDayDate)} — <span style="color:var(--accent2)">${bigDayTotalH}h</span> of listening.
+      </div>
+      ${bigDayTop3.length ? `<div style="font-size:0.78rem;color:var(--text3);margin-top:10px;font-style:italic">Here's what was playing: ${bigDayTop3.map(n=>`<strong style="color:var(--text2)">${escHtml(n)}</strong>`).join(', ')}</div>` : ''}
+    </div>` : '';
+
   let html = `
+    ${bigDayHtml}
     <div class="toggle-row">${toggleHtml}</div>
     ${heroStatement(`Your longest rabbit hole was <em>${longestSessionH} hours on a ${escHtml(longestSessionDay)}</em>. You listened to <em>${longestSessionEps} episodes</em> back to back — and then, eventually, you surfaced.`)}
     <div class="evidence-section">
@@ -2305,6 +2377,7 @@ function renderBinge(windowIdx = 3) {
           <div class="card-rank">${date}</div>
           <div class="card-title">${escHtml(mainShow)}${escHtml(multiShow)}</div>
           <div class="card-sub">${session.length} episodes · ${fmtMs(totalMs)}${flightNote}</div>
+          <div style="margin-top:8px">${aftermathTag(sessionAftermath[i])}</div>
         </div>
         <div style="text-align:right;flex-shrink:0">
           <div style="font-family:'Fraunces',serif;font-size:2rem;font-weight:700;color:var(--accent2)">${session.length}</div>
@@ -2325,6 +2398,22 @@ function renderBinge(windowIdx = 3) {
     html += `<button class="show-more-btn" onclick="document.querySelectorAll('#binge-session-list .binge-card-wrap[style*=none]').forEach(el=>el.style.display='');this.remove()">Show ${sorted.length - 5} more sessions</button>`;
   }
   html += '</div>';
+
+  // ── Trigger Pattern Analysis ──
+  html += `
+    <div class="evidence-section">
+      <div class="evidence-label">Your Binge Triggers</div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        ${topDay ? `<div style="font-size:0.92rem;color:var(--text2)"><strong style="color:var(--text)">${topDayPct}% of your binges happen on ${topDay[0]}s.</strong> That's your danger zone.</div>` : ''}
+        ${topHour ? `<div style="font-size:0.92rem;color:var(--text2)"><strong style="color:var(--text)">You usually fall down rabbit holes around ${fmtHourLocal(topHour[0])}.</strong> Something about that hour.</div>` : ''}
+        ${mostBingedShow ? `<div style="font-size:0.92rem;color:var(--text2)"><strong style="color:var(--text)">${escHtml(mostBingedShow[0])}</strong> is responsible for <strong style="color:var(--text)">${mostBingedShow[1]}</strong> of your ${sorted.length} binge sessions.</div>` : ''}
+      </div>
+    </div>`;
+
+  html += ghostPattern
+    ? `<div style="margin-top:32px;padding:20px 24px;border:1px solid var(--border);border-radius:var(--radius);font-family:'Fraunces',serif;font-size:1rem;font-style:italic;color:var(--text2)">You burn bright and move on. Most of your rabbit holes end as suddenly as they started.</div>`
+    : '';
+
   html += toolVerdict(biVerdict);
   el.innerHTML = html;
 }
