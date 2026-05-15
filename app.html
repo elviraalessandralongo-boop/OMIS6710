@@ -3433,6 +3433,135 @@ function switchBrainMode(mode) {
 }
 
 /* ═══════════════════════════════════════════
+   PERSONALITY SHARE CARD
+═══════════════════════════════════════════ */
+function downloadPersonalityCard() {
+  const data = State.computed.personalityCard;
+  if (!data) return;
+  const { label, colorStr, stats, provocation } = data;
+
+  function resolveColor(c) {
+    if (!c || !c.startsWith('var(--')) return c || '#1db954';
+    const name = c.slice(4, -1);
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#1db954';
+  }
+  const accent = resolveColor(colorStr);
+
+  document.fonts.ready.then(() => {
+    const S = 1080;
+    const canvas = document.createElement('canvas');
+    canvas.width = S;
+    canvas.height = S;
+    const ctx = canvas.getContext('2d');
+
+    // Background
+    const bg = ctx.createRadialGradient(S/2, S*0.4, 0, S/2, S*0.4, S*0.75);
+    bg.addColorStop(0, '#1e1e1e');
+    bg.addColorStop(1, '#121212');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, S, S);
+
+    const CX = S / 2;
+    const PAD = 90;
+
+    // Helper: wrap text into lines
+    function wrapLines(text, font, maxW) {
+      ctx.font = font;
+      const words = text.split(' ');
+      const lines = [];
+      let cur = '';
+      for (const w of words) {
+        const test = cur ? cur + ' ' + w : w;
+        if (ctx.measureText(test).width > maxW && cur) { lines.push(cur); cur = w; }
+        else cur = test;
+      }
+      if (cur) lines.push(cur);
+      return lines;
+    }
+
+    function fillCenter(text, font, color, y) {
+      ctx.font = font;
+      ctx.fillStyle = color;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, CX, y);
+    }
+
+    function fillWrapped(text, font, color, y, maxW, lh) {
+      const lines = wrapLines(text, font, maxW);
+      ctx.font = font;
+      ctx.fillStyle = color;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const totalH = (lines.length - 1) * lh;
+      lines.forEach((l, i) => ctx.fillText(l, CX, y - totalH/2 + i * lh));
+      return lines.length;
+    }
+
+    // ── Logo ──
+    fillCenter('THE HONEST LISTENER', '700 22px "Space Grotesk", sans-serif', '#6e6e8a', 80);
+
+    // Accent pip under logo
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    ctx.moveTo(CX - 28, 105);
+    ctx.lineTo(CX + 28, 105);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // ── Personality label ── (centred around y=310, may wrap)
+    const labelFont = '700 86px "Fraunces", serif';
+    const labelLines = wrapLines(label, labelFont, S - PAD * 2);
+    const labelLineH = 100;
+    const labelCY = 315;
+    const labelTotalH = (labelLines.length - 1) * labelLineH;
+    ctx.font = labelFont;
+    ctx.fillStyle = accent;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    labelLines.forEach((l, i) => ctx.fillText(l, CX, labelCY - labelTotalH/2 + i * labelLineH));
+    const labelBottom = labelCY + labelTotalH/2 + labelLineH/2;
+
+    // ── Divider ──
+    const divY = labelBottom + 40;
+    ctx.strokeStyle = '#2e2e2e';
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    ctx.moveTo(PAD, divY);
+    ctx.lineTo(S - PAD, divY);
+    ctx.stroke();
+
+    // ── Stats ──
+    const statStartY = divY + 56;
+    const statLH = 50;
+    stats.forEach((s, i) => fillCenter(s, '400 27px "Space Grotesk", sans-serif', '#9090a8', statStartY + i * statLH));
+    const statsBottom = statStartY + stats.length * statLH;
+
+    // ── Provocation ──
+    const provY = statsBottom + 80;
+    fillWrapped(provocation, 'italic 400 34px "Fraunces", serif', accent, provY, S - PAD * 2 - 60, 52);
+
+    // ── Footer ──
+    fillCenter('thehonestlistener.app', '400 18px "Space Grotesk", sans-serif', '#3e3e52', S - 52);
+
+    // ── Download ──
+    canvas.toBlob(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'my-listener-personality.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 'image/png');
+  });
+}
+
+/* ═══════════════════════════════════════════
    TOOL 9: LISTENER PERSONALITY
 ═══════════════════════════════════════════ */
 function renderPersonality() {
@@ -3674,6 +3803,14 @@ function renderPersonality() {
     `<div style="font-size:0.95rem;color:var(--text2);line-height:1.7;padding:10px 0;border-bottom:1px solid var(--border)">${s}</div>`
   ).join('');
 
+  // Store for share card
+  State.computed.personalityCard = {
+    label,
+    colorStr: color,
+    stats: supportingSentences.slice(0,3).map(s => s.replace(/<[^>]+>/g, '')),
+    provocation,
+  };
+
   const whyHtml = whyItems.slice(0, 3).map(w =>
     `<div class="why-item">
       <div class="why-num" style="color:${w.color}">${w.num}</div>
@@ -3684,7 +3821,11 @@ function renderPersonality() {
   // Build the full content but reveal it with a dramatic animation
   const fullContentHtml = `
     <div style="background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:var(--radius);padding:48px 40px 40px;margin-bottom:32px;text-align:center">
-      <div id="personality-label-reveal" class="personality-label personality-reveal-label" style="color:${color};font-size:3.2rem;margin-bottom:12px;opacity:0;transition:opacity 0.8s ease">${label}</div>
+      <div id="personality-label-reveal" class="personality-label personality-reveal-label" style="color:${color};font-size:3.2rem;margin-bottom:16px;opacity:0;transition:opacity 0.8s ease">${label}</div>
+      <button onclick="downloadPersonalityCard()" style="display:inline-flex;align-items:center;gap:8px;background:none;border:1px solid var(--border);color:var(--text3);font-size:0.78rem;font-family:inherit;padding:9px 20px;border-radius:20px;cursor:pointer;margin-bottom:24px;transition:border-color 0.15s,color 0.15s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><path d="M7 1v8M4 6l3 3 3-3M2 11h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Save your result
+      </button>
       <div id="personality-subhead" style="font-family:'Fraunces',serif;font-style:italic;font-size:1.15rem;color:var(--text2);margin-bottom:32px;opacity:0;transition:opacity 0.6s ease">Here's why.</div>
       <div id="personality-supporting" style="max-width:480px;margin:0 auto;opacity:0;transition:opacity 0.6s ease">
         ${supportingHtml}
