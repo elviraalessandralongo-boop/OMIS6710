@@ -727,7 +727,7 @@ body {
   max-width: 600px;
   padding: 0 40px;
   opacity: 0;
-  transition: opacity 0.12s ease;
+  transition: opacity 0.18s ease;
   line-height: 1.2;
 }
 .home-reveal-text em { color: var(--accent2); font-style: normal; }
@@ -1320,7 +1320,7 @@ function playHomeReveal(fragments, callback) {
   overlay.appendChild(textEl);
   document.body.appendChild(overlay);
 
-  const SHOW_MS = 320, FADE_MS = 120;
+  const SHOW_MS = 750, FADE_MS = 200;
   let idx = 0;
 
   function showNext() {
