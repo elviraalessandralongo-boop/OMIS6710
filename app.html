@@ -2570,6 +2570,40 @@ async function fetchEarlyAdopterData(shows, showFirst, showMs, el) {
   }
 
   State.computed._earlyAdopterResults = results;
+
+  // ── Missed shows: search Spotify for popular shows in user's top categories ──
+  const catMsMap = {};
+  for (const [show, ms] of Object.entries(showMs)) {
+    const lower = show.toLowerCase();
+    let bestCat = null, bestScore = 0;
+    for (const cat of BUBBLE_CATEGORIES) {
+      const matched = cat.keywords.filter(k => lower.includes(k));
+      if (matched.length > bestScore) { bestScore = matched.length; bestCat = cat; }
+    }
+    if (bestCat && bestScore > 0) catMsMap[bestCat.name] = (catMsMap[bestCat.name] || 0) + ms;
+  }
+  const topCatNames = Object.entries(catMsMap).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([n])=>n);
+  const userShowNamesLower = new Set(Object.keys(showMs).map(s=>s.toLowerCase()));
+  const missedShows = [];
+  for (const catName of topCatNames) {
+    try {
+      const res = await fetch(
+        `https://api.spotify.com/v1/search?q=${encodeURIComponent(catName)}&type=show&market=US&limit=12`,
+        { headers: { Authorization: `Bearer ${State.spotifyToken}` } }
+      );
+      if (!res.ok) continue;
+      const data = await res.json();
+      for (const item of (data.shows?.items || [])) {
+        if (!item?.name) continue;
+        if (userShowNamesLower.has(item.name.toLowerCase())) continue;
+        if ((item.popularity || 0) < 60) continue;
+        if (missedShows.find(m => m.name.toLowerCase() === item.name.toLowerCase())) continue;
+        missedShows.push({ name: item.name, popularity: item.popularity, category: catName });
+      }
+    } catch(e) { /* rate limit or network — skip silently */ }
+  }
+  State.computed._eaMissedShows = missedShows.slice(0, 6);
+
   renderEarlyAdopterResults(results, el);
 }
 
@@ -2666,7 +2700,50 @@ function renderEarlyAdopterResults(results, el) {
     ? 'Your taste is independent — category by category.'
     : 'You span the spectrum. Your taste doesn\'t fit neatly into a single adopter profile.';
 
-  // Build progressive-disclosure rows
+  // ── Badge Moment: earliest discovery relative to eventual popularity ──
+  const earlyTiersSet = new Set(['Trendsetter','Early Adopter','Niche Hunter']);
+  const badgeShow = results
+    .filter(r => r.popularity !== null && earlyTiersSet.has(classifyAdopter(r.popularity, r.firstTs).tier))
+    .sort((a,b) => {
+      const sa = ((Date.now() - a.firstTs) / (30 * 86400000)) * (a.popularity / 100);
+      const sb = ((Date.now() - b.firstTs) / (30 * 86400000)) * (b.popularity / 100);
+      return sb - sa;
+    })[0] || null;
+  const badgeMonths = badgeShow ? Math.round((Date.now() - badgeShow.firstTs) / (30 * 86400000)) : 0;
+  const badgeDateStr = badgeShow ? new Date(badgeShow.firstTs).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : null;
+
+  // ── Category Pattern: avg earliness rate per category ──
+  const catEarliness = {};
+  for (const r of results) {
+    if (r.popularity === null) continue;
+    const { tier } = classifyAdopter(r.popularity, r.firstTs);
+    const lower = r.show.toLowerCase();
+    let bestCat = null, bestScore = 0;
+    for (const cat of BUBBLE_CATEGORIES) {
+      const m = cat.keywords.filter(k => lower.includes(k));
+      if (m.length > bestScore) { bestScore = m.length; bestCat = cat; }
+    }
+    if (!bestCat || bestScore === 0) continue;
+    if (!catEarliness[bestCat.name]) catEarliness[bestCat.name] = { early: 0, total: 0, icon: bestCat.icon };
+    catEarliness[bestCat.name].total++;
+    if (earlyTiersSet.has(tier)) catEarliness[bestCat.name].early++;
+  }
+  const catList = Object.entries(catEarliness)
+    .filter(([,v]) => v.total >= 2)
+    .map(([name, v]) => ({ name, rate: v.early / v.total, icon: v.icon, total: v.total }))
+    .sort((a,b) => b.rate - a.rate);
+  const topEarlyCat = catList[0] || null;
+  const topLateCat  = catList[catList.length - 1] || null;
+  const catHeroLine = catList.length >= 2 && topEarlyCat !== topLateCat && topEarlyCat.rate >= 0.5 && topLateCat.rate <= 0.5
+    ? `You're ahead of the curve in <strong>${topEarlyCat.name}</strong> but late to <strong>${topLateCat.name}</strong>.`
+    : catList.length >= 1
+    ? `Your strongest early-adopter category is <strong>${catList[0].name}</strong>.`
+    : null;
+
+  // ── Missed Shows ──
+  const missedShows = State.computed._eaMissedShows || [];
+
+  // ── Build progressive-disclosure rows ──
   const eaRows = sorted.map((r, i) => {
     const { tier, color, icon, desc } = classifyAdopter(r.popularity, r.firstTs);
     const firstDate = new Date(r.firstTs).toLocaleDateString('en-US',{month:'short',year:'numeric'});
@@ -2700,7 +2777,48 @@ function renderEarlyAdopterResults(results, el) {
     </li>`;
   }).join('');
 
+  const badgeHtml = badgeShow ? `
+    <div style="background:linear-gradient(135deg,rgba(29,185,84,0.08) 0%,rgba(29,185,84,0.03) 100%);border:1px solid rgba(29,185,84,0.25);border-radius:var(--radius);padding:32px;margin-bottom:32px">
+      <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);margin-bottom:12px">🏆 Your Earliest Discovery</div>
+      <div style="font-family:'Fraunces',serif;font-size:1.5rem;font-weight:700;color:var(--text);line-height:1.25;margin-bottom:8px">${escHtml(badgeShow.show)}</div>
+      <div style="font-size:0.88rem;color:var(--text2);line-height:1.55">You first listened on <strong>${badgeDateStr}</strong> — <strong>${badgeMonths} months</strong> before it peaked. You were there first.</div>
+    </div>` : '';
+
+  const catSectionHtml = catList.length >= 2 ? `
+    <div class="evidence-section">
+      <div class="evidence-label">Category Patterns</div>
+      ${catHeroLine ? `<div style="font-size:0.95rem;color:var(--text);line-height:1.5;margin-bottom:20px">${catHeroLine}</div>` : ''}
+      <div style="display:flex;flex-direction:column;gap:12px">
+        ${catList.map(c => {
+          const pct = Math.round(c.rate * 100);
+          const col = pct >= 60 ? 'var(--accent2)' : pct <= 30 ? 'var(--amber)' : 'var(--text2)';
+          return `<div style="display:flex;align-items:center;gap:12px">
+            <span style="font-size:1rem;flex-shrink:0">${c.icon}</span>
+            <div style="flex:1;font-size:0.85rem;color:var(--text2)">${c.name}</div>
+            <div style="font-family:'Fraunces',serif;font-size:1rem;font-weight:700;color:${col}">${pct}% early</div>
+            <div style="width:80px;background:var(--bg3);border-radius:3px;height:4px"><div style="width:${pct}%;height:100%;border-radius:3px;background:${col}"></div></div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+
+  const missedHtml = `
+    <div class="evidence-section">
+      <div class="evidence-label">The Ones That Passed You By</div>
+      ${missedShows.length === 0
+        ? `<div style="font-size:0.9rem;color:var(--text2);font-style:italic">You haven't missed much. You're across most of what's popular in your categories.</div>`
+        : `<div style="display:flex;flex-direction:column;gap:0">
+          ${missedShows.map(m => `
+            <div style="padding:16px 0;border-bottom:1px solid var(--border)">
+              <div style="font-size:0.88rem;font-weight:600;color:var(--text);margin-bottom:3px">${escHtml(m.name)}</div>
+              <div style="font-size:0.75rem;color:var(--text3)">${escHtml(m.category)} · Popularity ${m.popularity}/100</div>
+              <div style="font-size:0.72rem;color:var(--text3);font-style:italic;margin-top:3px">Everyone else was listening. You weren't.</div>
+            </div>`).join('')}
+          </div>`}
+    </div>`;
+
   el.innerHTML = `
+    ${badgeHtml}
     ${heroStatement(eaHero)}
     <div class="evidence-section">
       <div class="evidence-label">Your Tier Breakdown</div>
@@ -2725,6 +2843,8 @@ function renderEarlyAdopterResults(results, el) {
       </ul>
       ${sorted.length > 5 ? `<button class="show-more-btn" onclick="revealMore(this)">Show ${sorted.length - 5} more shows</button>` : ''}
     </div>
+    ${catSectionHtml}
+    ${missedHtml}
     ${toolVerdict(eaVerdict)}
     <div style="margin-top:24px;font-size:0.7rem;color:var(--text3);text-align:center;padding-top:16px;border-top:1px solid var(--border)">Powered by the Spotify Web API. Data reflects current popularity and may change over time.</div>`;
 }
