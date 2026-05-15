@@ -233,6 +233,7 @@ body {
   .page { padding: 56px 20px 84px; }
   #page-landing.active { padding: 60px 24px; }
   .landing-title { font-size: 2.8rem; }
+  .landing-teaser-row { grid-template-columns: 1fr; gap: 12px; }
   .home-stats-grid { grid-template-columns: 1fr 1fr; }
   .start-here-card { flex-direction: column; gap: 12px; }
   .heatmap-grid { overflow-x: auto; }
@@ -245,21 +246,68 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   text-align: center;
-  padding: 80px 52px;
+  padding: 80px 52px 100px;
   min-height: 100vh;
+}
+.landing-positioning {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(1.3rem, 3vw, 1.9rem);
+  font-weight: 400;
+  font-style: italic;
+  line-height: 1.35;
+  color: var(--text);
+  max-width: 660px;
+  margin-bottom: 12px;
+}
+.landing-positioning em {
+  color: var(--accent2);
+  font-style: normal;
 }
 .landing-title {
   font-family: 'Fraunces', serif;
   font-size: clamp(2rem, 6vw, 4rem);
   font-weight: 700;
   line-height: 1.05;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
   background: linear-gradient(135deg, var(--text) 0%, var(--accent2) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+.landing-teaser-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  max-width: 720px;
+  width: 100%;
+  margin-bottom: 52px;
+}
+.landing-teaser-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px 20px;
+  text-align: left;
+}
+.landing-teaser-icon {
+  font-size: 1.4rem;
+  margin-bottom: 12px;
+  display: block;
+}
+.landing-teaser-hook {
+  font-family: 'Fraunces', serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+  margin-bottom: 8px;
+}
+.landing-teaser-explain {
+  font-size: 0.78rem;
+  color: var(--text3);
+  line-height: 1.5;
 }
 .landing-sub {
   font-size: 1.1rem;
@@ -1128,30 +1176,54 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   <!-- LANDING -->
   <div id="page-landing" class="page active">
     <div class="landing-title">The Honest<br>Listener</div>
-    <div class="landing-sub">Upload your Spotify Extended Streaming History zip. Everything stays on your machine — no data leaves your browser.</div>
-    <div style="font-size:0.82rem;color:var(--text3);margin-bottom:24px;line-height:1.6">
-      Don't have your data yet? You can request it at<br>
-      <a href="https://www.spotify.com/us/account/privacy/" target="_blank" style="color:var(--accent);text-decoration:none;font-weight:500">spotify.com/us/account/privacy</a>
-      — scroll to <em>Extended streaming history</em> and request a download.
+    <p class="landing-positioning">Spotify Wrapped tells you what you listened to.<br><em>The Honest Listener</em> tells you what that actually means.</p>
+
+    <div class="landing-teaser-row">
+      <div class="landing-teaser-card">
+        <span class="landing-teaser-icon">😬</span>
+        <div class="landing-teaser-hook">The podcasts you ghosted</div>
+        <div class="landing-teaser-explain">You searched for them. You pressed play. You never came back.</div>
+      </div>
+      <div class="landing-teaser-card">
+        <span class="landing-teaser-icon">📈</span>
+        <div class="landing-teaser-hook">The week you got over your favourite song</div>
+        <div class="landing-teaser-explain">Every obsession has a peak. We found yours.</div>
+      </div>
+      <div class="landing-teaser-card">
+        <span class="landing-teaser-icon">🪞</span>
+        <div class="landing-teaser-hook">What you actually listen to vs. what you think you do</div>
+        <div class="landing-teaser-explain">The gap between intention and habit. It's bigger than you think.</div>
+      </div>
     </div>
-    <p style="font-size:0.8rem;color:var(--text3);margin-bottom:16px;line-height:1.5">Upload your Spotify data zip — everything is analysed instantly on your device. Nothing is sent anywhere, ever.</p>
+
     <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()" aria-label="Upload Spotify zip file">
       <div class="drop-icon">🎧</div>
       <div class="drop-label">Drop your Spotify zip here</div>
       <div class="drop-hint">or click to browse · Works with any valid Spotify export</div>
     </div>
+
     <div id="tz-selector" style="margin-top:16px;font-size:0.78rem;color:var(--text3);display:flex;align-items:center;gap:8px;justify-content:center">
       <span>🕐</span>
       <span>Times shown in</span>
       <select id="tz-select" style="background:var(--bg2);border:1px solid var(--border);color:var(--text2);font-size:0.78rem;padding:3px 8px;border-radius:6px;font-family:inherit">
       </select>
     </div>
+
     <div class="landing-progress" id="landing-progress" style="display:none">
       <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill"></div></div>
       <div class="progress-text" id="progress-text">Parsing files…</div>
     </div>
     <div class="landing-error" id="landing-error" style="display:none"></div>
     <input type="file" id="file-input" accept=".zip" aria-label="Upload Spotify zip file">
+
+    <p style="margin-top:28px;font-size:0.75rem;color:var(--text3);line-height:1.6">
+      Your data never leaves your device. No account needed. No tracking.
+    </p>
+    <div style="margin-top:8px;font-size:0.75rem;color:var(--text3);line-height:1.6">
+      Don't have your data yet? Request it at
+      <a href="https://www.spotify.com/us/account/privacy/" target="_blank" style="color:var(--accent);text-decoration:none;font-weight:500">spotify.com/account/privacy</a>
+      — scroll to <em>Extended streaming history</em>.
+    </div>
   </div>
 
   <!-- TOOL 1: GUILT QUEUE -->
