@@ -117,9 +117,7 @@ body {
   font-weight: 400;
   margin-bottom: 1px;
   user-select: none;
-  white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 .nav-item:hover { background: var(--bg3); color: var(--text); }
 .nav-item.active {
@@ -448,10 +446,10 @@ body {
 /* ── PERSONALITY ── */
 .personality-label {
   font-family: 'Fraunces', serif;
-  font-size: 3.5rem;
+  font-size: 4.5rem;
   font-weight: 700;
   color: var(--accent2);
-  margin-bottom: 8px;
+  margin-bottom: 12px;
   line-height: 1;
 }
 .personality-desc {
@@ -536,6 +534,112 @@ body {
 .result-stats { display: flex; gap: 20px; flex-wrap: wrap; }
 .result-stat { font-size: 0.78rem; color: var(--text3); line-height: 1.6; font-weight: 400; }
 .result-stat strong { color: var(--text2); font-weight: 500; }
+
+/* ── LANDING ANIMATED BACKGROUND ── */
+#page-landing { position: relative; overflow: hidden; }
+#page-landing::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 700px 500px at 20% 65%, rgba(29,185,84,0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 500px 400px at 80% 25%, rgba(30,215,96,0.05) 0%, transparent 70%);
+  animation: orbDrift 16s ease-in-out infinite alternate;
+  z-index: 0;
+}
+#page-landing > * { position: relative; z-index: 1; }
+@keyframes orbDrift {
+  from { transform: translate(0, 0); }
+  to   { transform: translate(50px, -30px); }
+}
+.drop-zone.drag-over {
+  transform: scale(1.025);
+  box-shadow: 0 0 50px rgba(29,185,84,0.2);
+}
+
+/* ── HERO NUMBER ── */
+.hero-block { margin-bottom: 36px; }
+.hero-label {
+  font-size: 0.68rem;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.hero-val {
+  font-family: 'Fraunces', serif;
+  font-size: 5rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+.hero-note {
+  font-size: 0.95rem;
+  color: var(--text2);
+  font-style: italic;
+  font-family: 'Fraunces', serif;
+  line-height: 1.6;
+  max-width: 540px;
+}
+
+/* ── RESULT LIST HOVER ── */
+.result-list li {
+  transition: background 0.12s ease;
+  border-radius: var(--radius-sm);
+  padding-left: 8px;
+  padding-right: 8px;
+  margin-left: -8px;
+  margin-right: -8px;
+}
+.result-list li:hover { background: var(--bg2); }
+
+/* ── NAV STATS & DOTS ── */
+.nav-label-wrap { flex: 1; min-width: 0; }
+.nav-label-text {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.83rem;
+  line-height: 1.3;
+}
+.nav-stat-text {
+  display: block;
+  font-size: 0.66rem;
+  color: var(--text3);
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+.nav-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--bg4);
+  flex-shrink: 0;
+  transition: background 0.4s ease;
+}
+.nav-dot.ready { background: var(--accent); }
+
+/* ── PERSONALITY REVEAL ── */
+@keyframes revealUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.personality-reveal-label {
+  animation: revealUp 0.7s cubic-bezier(0.22,1,0.36,1) 0.1s both;
+}
+.personality-reveal-desc {
+  animation: revealUp 0.6s cubic-bezier(0.22,1,0.36,1) 0.32s both;
+}
+.personality-reveal-stats {
+  animation: revealUp 0.6s cubic-bezier(0.22,1,0.36,1) 0.5s both;
+}
 </style>
 </head>
 <body>
@@ -550,45 +654,100 @@ body {
   <div class="sidebar-section">
     <div class="sidebar-section-label">Podcasts</div>
     <div class="nav-item" data-page="guilt-queue">
-      <span class="nav-icon">😬</span> Guilt Queue
+      <span class="nav-icon">😬</span>
+      <span class="nav-label-wrap">
+        <span class="nav-label-text">Guilt Queue</span>
+        <span class="nav-stat-text" id="nstat-guilt-queue"></span>
+      </span>
+      <span class="nav-dot" id="ndot-guilt-queue"></span>
     </div>
     <div class="nav-item" data-page="hooked">
-      <span class="nav-icon">🎣</span> Accidentally Hooked
+      <span class="nav-icon">🎣</span>
+      <span class="nav-label-wrap">
+        <span class="nav-label-text">Accidentally Hooked</span>
+        <span class="nav-stat-text" id="nstat-hooked"></span>
+      </span>
+      <span class="nav-dot" id="ndot-hooked"></span>
     </div>
     <div class="nav-item" data-page="binge">
-      <span class="nav-icon">📚</span> Binge Sessions
+      <span class="nav-icon">📚</span>
+      <span class="nav-label-wrap">
+        <span class="nav-label-text">Binge Sessions</span>
+        <span class="nav-stat-text" id="nstat-binge"></span>
+      </span>
+      <span class="nav-dot" id="ndot-binge"></span>
     </div>
     <div class="nav-item" data-page="early-adopter">
-      <span class="nav-icon">🔭</span> Early Adopter
+      <span class="nav-icon">🔭</span>
+      <span class="nav-label-wrap">
+        <span class="nav-label-text">Early Adopter</span>
+        <span class="nav-stat-text" id="nstat-early-adopter"></span>
+      </span>
+      <span class="nav-dot" id="ndot-early-adopter"></span>
     </div>
     <div class="nav-item" data-page="pod-bubble">
-      <span class="nav-icon">🫧</span> Your Podcast Bubble
+      <span class="nav-icon">🫧</span>
+      <span class="nav-label-wrap">
+        <span class="nav-label-text">Your Podcast Bubble</span>
+        <span class="nav-stat-text" id="nstat-pod-bubble"></span>
+      </span>
+      <span class="nav-dot" id="ndot-pod-bubble"></span>
     </div>
   </div>
 
   <div class="sidebar-section">
     <div class="sidebar-section-label">Music</div>
     <div class="nav-item" data-page="one-hit">
-      <span class="nav-icon">🎯</span> One Hit Wonder
+      <span class="nav-icon">🎯</span>
+      <span class="nav-label-wrap">
+        <span class="nav-label-text">One Hit Wonder</span>
+        <span class="nav-stat-text" id="nstat-one-hit"></span>
+      </span>
+      <span class="nav-dot" id="ndot-one-hit"></span>
     </div>
     <div class="nav-item" data-page="peak-obsession">
-      <span class="nav-icon">📈</span> Peak Obsession
+      <span class="nav-icon">📈</span>
+      <span class="nav-label-wrap">
+        <span class="nav-label-text">Peak Obsession</span>
+        <span class="nav-stat-text" id="nstat-peak-obsession"></span>
+      </span>
+      <span class="nav-dot" id="ndot-peak-obsession"></span>
     </div>
     <div class="nav-item" data-page="forgotten">
-      <span class="nav-icon">🗂️</span> Forgotten Plays
+      <span class="nav-icon">🗂️</span>
+      <span class="nav-label-wrap">
+        <span class="nav-label-text">Forgotten Plays</span>
+        <span class="nav-stat-text" id="nstat-forgotten"></span>
+      </span>
+      <span class="nav-dot" id="ndot-forgotten"></span>
     </div>
   </div>
 
   <div class="sidebar-section">
     <div class="sidebar-section-label">Synthesis</div>
     <div class="nav-item" data-page="brain">
-      <span class="nav-icon">🧠</span> Music vs Podcast Brain
+      <span class="nav-icon">🧠</span>
+      <span class="nav-label-wrap">
+        <span class="nav-label-text">Music vs Podcast Brain</span>
+        <span class="nav-stat-text" id="nstat-brain"></span>
+      </span>
+      <span class="nav-dot" id="ndot-brain"></span>
     </div>
     <div class="nav-item" data-page="personality">
-      <span class="nav-icon">🪞</span> Your Personality
+      <span class="nav-icon">🪞</span>
+      <span class="nav-label-wrap">
+        <span class="nav-label-text">Your Personality</span>
+        <span class="nav-stat-text" id="nstat-personality"></span>
+      </span>
+      <span class="nav-dot" id="ndot-personality"></span>
     </div>
     <div class="nav-item" data-page="discoveries">
-      <span class="nav-icon">✨</span> Discoveries
+      <span class="nav-icon">✨</span>
+      <span class="nav-label-wrap">
+        <span class="nav-label-text">Discoveries</span>
+        <span class="nav-stat-text" id="nstat-discoveries"></span>
+      </span>
+      <span class="nav-dot" id="ndot-discoveries"></span>
     </div>
   </div>
 
@@ -836,13 +995,19 @@ async function handleFile(file) {
     }
     let all = [];
     for (let i = 0; i < audioFiles.length; i++) {
-      setProgress(5 + (i / audioFiles.length) * 70, `Parsing ${audioFiles[i].split('/').pop()}…`);
+      const filename = audioFiles[i].split('/').pop();
+      setProgress(5 + (i / audioFiles.length) * 65, `Reading your history… file ${i+1} of ${audioFiles.length}`);
       const raw = await zip.files[audioFiles[i]].async('string');
       const parsed = JSON.parse(raw);
       all = all.concat(parsed);
+      if (all.length > 0) {
+        setProgress(5 + ((i+1) / audioFiles.length) * 65, `Found ${all.length.toLocaleString()} plays so far…`);
+      }
     }
-    setProgress(80, `Processing ${fmtNum(all.length)} records…`);
+    setProgress(75, `Sorting ${all.length.toLocaleString()} records…`);
     processData(all);
+    setProgress(88, 'Crunching stats…');
+    updateSidebarStats();
 
     if (!State.music.length && !State.podcasts.length) {
       document.getElementById('landing-progress').style.display = 'none';
@@ -858,7 +1023,7 @@ async function handleFile(file) {
       return;
     }
 
-    setProgress(100, `Done! ${fmtNum(State.music.length)} music · ${fmtNum(State.podcasts.length)} podcast`);
+    setProgress(100, `Ready! ${State.music.length.toLocaleString()} music · ${State.podcasts.length.toLocaleString()} podcast plays loaded`);
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('locked'));
     const allDates = [...State.music, ...State.podcasts].map(r => r.ts).sort();
     const yearFrom = allDates[0]?.slice(0,4) || '';
@@ -936,6 +1101,44 @@ function emptyState(icon, title, desc) {
     <div class="empty-title">${title}</div>
     <div class="empty-desc">${desc}</div>
   </div>`;
+}
+
+function heroBlock(val, label, note, id) {
+  const display = typeof val === 'number' ? val.toLocaleString() : val;
+  return `<div class="hero-block">
+    <div class="hero-label">${label}</div>
+    <div class="hero-val" id="${id}">${display}</div>
+    ${note ? `<div class="hero-note">${note}</div>` : ''}
+  </div>`;
+}
+
+function updateSidebarStats() {
+  const pods  = State.podcasts.length;
+  const music = State.music.length;
+  const total = music + pods;
+  const uniqueShows   = pods  ? new Set(State.podcasts.map(r => r.episode_show_name)).size : 0;
+  const uniqueArtists = music ? new Set(State.music.map(r => r.master_metadata_album_artist_name)).size : 0;
+
+  const statMap = {
+    'guilt-queue':    [pods  > 0, pods  > 0 ? `${uniqueShows} shows` : ''],
+    'hooked':         [pods  > 0, pods  > 0 ? `${uniqueShows} shows` : ''],
+    'binge':          [pods  > 0, pods  > 0 ? `${pods.toLocaleString()} episodes` : ''],
+    'early-adopter':  [pods  > 0, pods  > 0 ? 'Spotify API' : ''],
+    'pod-bubble':     [pods  > 0, pods  > 0 ? `${uniqueShows} shows` : ''],
+    'one-hit':        [music > 0, music > 0 ? `${uniqueArtists} artists` : ''],
+    'peak-obsession': [music > 0, music > 0 ? `${music.toLocaleString()} plays` : ''],
+    'forgotten':      [music > 0, music > 0 ? `${music.toLocaleString()} plays` : ''],
+    'brain':          [total > 0, total > 0 ? `${music.toLocaleString()}m · ${pods.toLocaleString()}p` : ''],
+    'personality':    [total > 0, total > 0 ? `${total.toLocaleString()} plays` : ''],
+    'discoveries':    [total > 0, total > 0 ? `${uniqueArtists} artists` : ''],
+  };
+
+  for (const [page, [hasData, statText]] of Object.entries(statMap)) {
+    const statEl = document.getElementById('nstat-' + page);
+    const dotEl  = document.getElementById('ndot-' + page);
+    if (statEl) statEl.textContent = statText;
+    if (dotEl)  dotEl.classList.toggle('ready', hasData);
+  }
 }
 
 function downloadCSV(rows, filename) {
@@ -1051,7 +1254,7 @@ function renderGuiltQueue(windowIdx = 1) {
   const el = document.getElementById('guilt-queue-content');
 
   if (!State.podcasts.length) {
-    el.innerHTML = emptyState('🎙️','No podcast data found','This tool requires podcast records in your streaming history. Load a Spotify export that includes podcast listening.');
+    el.innerHTML = emptyState('🎙️','No podcast data found','This tool needs podcast listening history. If you mostly listen to music, try One Hit Wonder or Forgotten Plays instead.');
     return;
   }
 
@@ -1089,10 +1292,15 @@ function renderGuiltQueue(windowIdx = 1) {
 
   const SHOW_MAX = 20;
   const top = results.slice(0, SHOW_MAX);
+  const shows = new Set(results.map(r => r.show)).size;
+  const avgComp = results.reduce((s,r) => s + r.completionRate, 0) / results.length;
+  const heroNote = results.length === 1
+    ? 'One episode you chose to start and never finished.'
+    : `Across ${shows} podcast${shows !== 1 ? 's' : ''}, avg completion ${Math.round(avgComp*100)}%.`;
   let html = `
     <div class="toggle-row">${toggleHtml}</div>
+    ${heroBlock(results.length, 'Episodes Abandoned', heroNote, 'hero-gq')}
     <div class="stat-row">
-      <div class="stat-box"><div class="stat-box-val" id="gq-count">0</div><div class="stat-box-label">Abandoned Episodes</div></div>
       <div class="stat-box"><div class="stat-box-val" id="gq-shows">0</div><div class="stat-box-label">Abandoned Podcasts</div></div>
       <div class="stat-box"><div class="stat-box-val" id="gq-avg">—</div><div class="stat-box-label">Avg Completion</div></div>
     </div>
@@ -1125,9 +1333,7 @@ function renderGuiltQueue(windowIdx = 1) {
   html += '</ul>';
   el.innerHTML = html;
 
-  const shows = new Set(results.map(r => r.show)).size;
-  const avgComp = results.reduce((s,r) => s + r.completionRate, 0) / results.length;
-  animateCount(document.getElementById('gq-count'), results.length);
+  animateCount(document.getElementById('hero-gq'), results.length, 1000);
   animateCount(document.getElementById('gq-shows'), shows);
   document.getElementById('gq-avg').textContent = Math.round(avgComp * 100) + '%';
   animateBars(el);
@@ -1150,7 +1356,7 @@ function animateBannerCounts(data) {
 function renderHooked() {
   const el = document.getElementById('hooked-content');
   if (!State.podcasts.length) {
-    el.innerHTML = emptyState('🎙️','No podcast data found','This tool needs podcast records. Load a Spotify export that includes podcast listening.');
+    el.innerHTML = emptyState('🎙️','No podcast data found','This tool needs podcast listening history. If you mostly listen to music, try One Hit Wonder or Forgotten Plays instead.');
     return;
   }
 
@@ -1177,9 +1383,12 @@ function renderHooked() {
 
   const SHOW_MAX = 20;
   const top = results.slice(0, SHOW_MAX);
+  const hkShows = new Set(results.map(r => r.show)).size;
+  const hkAvgComp = results.reduce((s,r) => s + r.completionRate, 0) / results.length;
+  const hkNote = `${hkShows} podcast${hkShows !== 1 ? 's' : ''} that pulled you in uninvited — avg ${Math.round(hkAvgComp*100)}% complete.`;
   let html = `
+    ${heroBlock(results.length, 'Surprise Finishes', hkNote, 'hero-hk')}
     <div class="stat-row">
-      <div class="stat-box"><div class="stat-box-val" id="hk-count">0</div><div class="stat-box-label">Surprise Finishes</div></div>
       <div class="stat-box"><div class="stat-box-val" id="hk-shows">0</div><div class="stat-box-label">Podcasts That Hooked You</div></div>
       <div class="stat-box"><div class="stat-box-val" id="hk-avg">—</div><div class="stat-box-label">Avg Completion</div></div>
     </div>
@@ -1223,11 +1432,9 @@ function renderHooked() {
   html += '</ul>';
   el.innerHTML = html;
 
-  const shows = new Set(results.map(r => r.show)).size;
-  const avgComp = results.reduce((s,r) => s + r.completionRate, 0) / results.length;
-  animateCount(document.getElementById('hk-count'), results.length);
-  animateCount(document.getElementById('hk-shows'), shows);
-  document.getElementById('hk-avg').textContent = Math.round(avgComp * 100) + '%';
+  animateCount(document.getElementById('hero-hk'), results.length, 1000);
+  animateCount(document.getElementById('hk-shows'), hkShows);
+  document.getElementById('hk-avg').textContent = Math.round(hkAvgComp * 100) + '%';
   animateBars(el);
 }
 
@@ -1263,7 +1470,7 @@ const BINGE_WINDOWS = [
 function renderBinge(windowIdx = 3) {
   const el = document.getElementById('binge-content');
   if (!State.podcasts.length) {
-    el.innerHTML = emptyState('🎙️','No podcast data','This tool needs podcast records.');
+    el.innerHTML = emptyState('🎙️','No podcast data','Binge tracking needs podcast history. Explore your music obsessions with Peak Obsession instead.');
     return;
   }
 
@@ -1298,10 +1505,13 @@ function renderBinge(windowIdx = 3) {
     return startB - startA;
   });
 
+  const biMost = Math.max(...sorted.map(s=>s.length));
+  const biLongestMs = Math.max(...sorted.map(s => s.reduce((t,r) => t+(r.ms_played||0),0)));
+  const biNote = `Your longest run was ${biMost} episodes back-to-back — ${fmtMs(biLongestMs)} of uninterrupted listening.`;
   let html = `
     <div class="toggle-row">${toggleHtml}</div>
+    ${heroBlock(sorted.length, 'Binge Sessions', biNote, 'hero-bi')}
     <div class="stat-row">
-      <div class="stat-box"><div class="stat-box-val" id="bi-count">0</div><div class="stat-box-label">Binge Sessions</div></div>
       <div class="stat-box"><div class="stat-box-val" id="bi-most">0</div><div class="stat-box-label">Most Episodes in One Go</div></div>
       <div class="stat-box"><div class="stat-box-val" id="bi-longest">—</div><div class="stat-box-label">Longest Session</div></div>
     </div>`;
@@ -1337,10 +1547,9 @@ function renderBinge(windowIdx = 3) {
   });
 
   el.innerHTML = html;
-  animateCount(document.getElementById('bi-count'), sorted.length);
-  animateCount(document.getElementById('bi-most'), Math.max(...sorted.map(s=>s.length)));
-  const longestMs = Math.max(...sorted.map(s => s.reduce((t,r) => t+(r.ms_played||0),0)));
-  document.getElementById('bi-longest').textContent = fmtMs(longestMs);
+  animateCount(document.getElementById('hero-bi'), sorted.length, 1000);
+  animateCount(document.getElementById('bi-most'), biMost);
+  document.getElementById('bi-longest').textContent = fmtMs(biLongestMs);
 }
 
 /* ═══════════════════════════════════════════
@@ -1364,7 +1573,7 @@ async function generateCodeChallenge(verifier) {
 function renderEarlyAdopter() {
   const el = document.getElementById('early-adopter-content');
   if (!State.podcasts.length) {
-    el.innerHTML = emptyState('🎙️','No podcast data','Load a Spotify export that includes podcast listening history.');
+    el.innerHTML = emptyState('🔭','No podcast data','Early Adopter needs podcast history to check show popularity. Try Your Podcast Bubble once you have podcast data.');
     return;
   }
 
@@ -1495,7 +1704,7 @@ function classifyAdopter(popularity, firstTs) {
   if (popularity < 25) return { tier: 'Niche Hunter', color: 'var(--purple)', icon: '🔮', desc: 'Before anyone was listening' };
   if (popularity < 50 && daysSinceFirst > 365) return { tier: 'Early Adopter', color: 'var(--accent2)', icon: '🚀', desc: 'You got there early' };
   if (popularity >= 75 && daysSinceFirst < 180) return { tier: 'Late Majority', color: 'var(--amber)', icon: '📣', desc: 'Arrived after the buzz' };
-  if (popularity >= 50 && daysSinceFirst > 365) return { tier: 'Trendsetter', color: 'var(--green)', icon: '⭐', desc: 'Found it before it blew up' };
+  if (popularity >= 50 && daysSinceFirst > 365) return { tier: 'Trendsetter', color: '#22c55e', icon: '⭐', desc: 'Found it before it blew up' };
   return { tier: 'Mainstream', color: 'var(--blue)', icon: '🌊', desc: 'Right in the cultural current' };
 }
 
@@ -1576,7 +1785,7 @@ function renderEarlyAdopterResults(results, el) {
       <div class="card">
         <div class="card-title" style="margin-bottom:8px">What This Means</div>
         <div style="font-size:0.82rem;color:var(--text2);line-height:1.6">
-          <div style="margin-bottom:8px"><strong style="color:var(--green)">⭐ Trendsetter</strong> — You listened before it got big. Popular now, but you were there first.</div>
+          <div style="margin-bottom:8px"><strong style="color:#22c55e">⭐ Trendsetter</strong> — You listened before it got big. Popular now, but you were there first.</div>
           <div style="margin-bottom:8px"><strong style="color:var(--accent2)">🚀 Early Adopter</strong> — You found it in its early days and it grew with you.</div>
           <div style="margin-bottom:8px"><strong style="color:var(--purple)">🔮 Niche Hunter</strong> — You go where the algorithms don't. These shows are yours.</div>
           <div style="margin-bottom:8px"><strong style="color:var(--blue)">🌊 Mainstream</strong> — You and the world arrived at the same time. That's fine.</div>
@@ -1789,7 +1998,7 @@ const BUBBLE_CATEGORIES = [
 function renderPodBubble() {
   const el = document.getElementById('pod-bubble-content');
   if (!State.podcasts.length) {
-    el.innerHTML = emptyState('🫧','No podcast data','Load a Spotify export that includes podcast listening history.');
+    el.innerHTML = emptyState('🫧','No podcast data','Your Podcast Bubble needs podcast listening history. Check out Music vs Podcast Brain or Discoveries for music-only insights.');
     return;
   }
 
@@ -1905,7 +2114,7 @@ function renderPodBubble() {
 function renderOneHit() {
   const el = document.getElementById('one-hit-content');
   if (!State.music.length) {
-    el.innerHTML = emptyState('🎵','No music data','Load a Spotify export with music listening history.');
+    el.innerHTML = emptyState('🎯','No music data','One Hit Wonder needs music listening history. If you have podcasts, try Accidentally Hooked or Binge Sessions instead.');
     return;
   }
 
@@ -1942,9 +2151,11 @@ function renderOneHit() {
   }
 
   const OHW_MAX = 20;
+  const ohTopPct = Math.round(results[0].pct * 100);
+  const ohNote = `You know "${escHtml(results[0].topTrack)}" by ${escHtml(results[0].artist)} — and basically nothing else they made.`;
   let html = `
+    ${heroBlock(results.length, 'One-Track Artists', ohNote, 'hero-oh')}
     <div class="stat-row">
-      <div class="stat-box"><div class="stat-box-val" id="oh-count">0</div><div class="stat-box-label">One-Track Artists</div></div>
       <div class="stat-box"><div class="stat-box-val" id="oh-top">—</div><div class="stat-box-label">Highest Concentration</div></div>
     </div>
     ${results.length > OHW_MAX ? `<div style="margin-bottom:16px;font-size:0.75rem;color:var(--text3)">Showing top ${OHW_MAX} of ${fmtNum(results.length)}</div>` : ''}
@@ -1976,8 +2187,8 @@ function renderOneHit() {
   html += '</ul>';
   el.innerHTML = html;
 
-  animateCount(document.getElementById('oh-count'), results.length);
-  document.getElementById('oh-top').textContent = Math.round(results[0].pct * 100) + '%';
+  animateCount(document.getElementById('hero-oh'), results.length, 1000);
+  document.getElementById('oh-top').textContent = ohTopPct + '%';
   animateBars(el);
 }
 
@@ -1987,7 +2198,7 @@ function renderOneHit() {
 function renderPeakObsession() {
   const el = document.getElementById('peak-obsession-content');
   if (!State.music.length) {
-    el.innerHTML = emptyState('🎵','No music data','Load a Spotify export with music listening history.');
+    el.innerHTML = emptyState('📈','No music data','Peak Obsession needs music listening history to find your burn-and-move-on tracks.');
     return;
   }
 
@@ -2111,7 +2322,7 @@ const FORGOTTEN_WINDOWS = [
 function renderForgotten(windowIdx = 0) {
   const el = document.getElementById('forgotten-content');
   if (!State.music.length) {
-    el.innerHTML = emptyState('🎵','No music data','Load a Spotify export with music listening history.');
+    el.innerHTML = emptyState('🗂️','No music data','Forgotten Plays needs music listening history. For podcast insights, try Guilt Queue or Binge Sessions.');
     return;
   }
 
@@ -2154,10 +2365,14 @@ function renderForgotten(windowIdx = 0) {
 
   const maxDaysSince = results.reduce((mx, r) => r.daysSince > mx ? r.daysSince : mx, 1);
   const FG_MAX = 30;
+  const fgTopTrack = results[0];
+  const fgNote = fgTopTrack
+    ? `"${escHtml(fgTopTrack.track)}" by ${escHtml(fgTopTrack.artist)} — ${fgTopTrack.plays} plays, then silence for ${fmtNum(fgTopTrack.daysSince)} days.`
+    : '';
   let html = `
     <div class="toggle-row">${toggleHtml}</div>
+    ${heroBlock(results.length, 'Songs Gone Silent', fgNote, 'hero-fg')}
     <div class="stat-row">
-      <div class="stat-box"><div class="stat-box-val" id="fg-count">—</div><div class="stat-box-label">Forgotten Songs</div></div>
       <div class="stat-box"><div class="stat-box-val" id="fg-plays">—</div><div class="stat-box-label">Most Played (Then Abandoned)</div></div>
       <div class="stat-box"><div class="stat-box-val" id="fg-days">—</div><div class="stat-box-label">Longest Silence</div></div>
     </div>
@@ -2191,7 +2406,7 @@ function renderForgotten(windowIdx = 0) {
   html += '</ul>';
   el.innerHTML = html;
 
-  animateCount(document.getElementById('fg-count'), results.length);
+  animateCount(document.getElementById('hero-fg'), results.length, 1000);
   animateCount(document.getElementById('fg-plays'), results[0]?.plays || 0);
   document.getElementById('fg-days').textContent = fmtNum(maxDaysSince) + 'd';
   animateBars(el);
@@ -2536,9 +2751,9 @@ function renderPersonality() {
 
   el.innerHTML = `
     <div style="margin-bottom:40px">
-      <div class="personality-label" style="color:${color}">${label}</div>
-      <div class="personality-desc">${desc}</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;max-width:700px">
+      <div class="personality-label personality-reveal-label" style="color:${color}">${label}</div>
+      <div class="personality-desc personality-reveal-desc">${desc}</div>
+      <div class="personality-reveal-stats" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;max-width:700px">
         ${stats.map((s,i) => `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px">
           <div id="pstat-${i}" style="font-family:'Fraunces',serif;font-size:1.8rem;font-weight:700;color:${color};margin-bottom:4px">—</div>
           <div style="font-size:0.78rem;color:var(--text2);font-weight:600">${s.label}</div>
