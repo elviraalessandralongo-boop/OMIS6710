@@ -164,6 +164,7 @@ body {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  transition: margin-left 0.3s ease;
 }
 .page {
   display: none;
@@ -174,6 +175,75 @@ body {
 }
 .page.active { display: block; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── PERSONALITY FULL-VIEWPORT MODE ── */
+body.personality-mode #sidebar {
+  width: 0;
+  min-width: 0;
+  overflow: hidden;
+  border-right: none;
+  transition: width 0.4s cubic-bezier(0.4,0,0.2,1), min-width 0.4s cubic-bezier(0.4,0,0.2,1);
+}
+#sidebar { transition: width 0.4s cubic-bezier(0.4,0,0.2,1), min-width 0.4s cubic-bezier(0.4,0,0.2,1); }
+
+/* ── MOBILE SIDEBAR ── */
+#hamburger {
+  display: none;
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  z-index: 200;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-direction: column;
+  gap: 5px;
+  padding: 0;
+}
+#hamburger span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: var(--text2);
+  border-radius: 2px;
+  transition: all 0.2s ease;
+}
+#sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 19;
+}
+
+@media (max-width: 768px) {
+  body { overflow: hidden; }
+  #hamburger { display: flex; }
+  #sidebar {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    z-index: 20;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), width 0s;
+    width: var(--sidebar) !important;
+    min-width: var(--sidebar) !important;
+  }
+  body.sidebar-open #sidebar { transform: translateX(0); }
+  body.sidebar-open #sidebar-overlay { display: block; }
+  body.personality-mode #sidebar { transform: translateX(-100%) !important; }
+  .page { padding: 56px 20px 32px; }
+  #page-landing.active { padding: 60px 24px; }
+  .landing-title { font-size: 2.8rem; }
+  .home-stats-grid { grid-template-columns: 1fr 1fr; }
+  .start-here-card { flex-direction: column; gap: 12px; }
+  .heatmap-grid { overflow-x: auto; }
+}
+
 
 /* ── LANDING ── */
 #page-landing.active {
@@ -846,11 +916,44 @@ body {
 </head>
 <body>
 
+<button id="hamburger" onclick="toggleMobileSidebar()" aria-label="Menu">
+  <span></span><span></span><span></span>
+</button>
+<div id="sidebar-overlay" onclick="toggleMobileSidebar()"></div>
+
 <!-- SIDEBAR -->
 <nav id="sidebar">
   <div class="sidebar-logo" onclick="navigate('home')" style="cursor:pointer" title="Back to overview">
     <h1>The Honest Listener</h1>
     <span>Spotify Analytics</span>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Music</div>
+    <div class="nav-item" data-page="one-hit">
+      <span class="nav-icon">🎯</span>
+      <span class="nav-label-wrap">
+        <span class="nav-label-text">One Hit Wonder</span>
+        <span class="nav-stat-text" id="nstat-one-hit"></span>
+      </span>
+      <span class="nav-dot" id="ndot-one-hit"></span>
+    </div>
+    <div class="nav-item" data-page="peak-obsession">
+      <span class="nav-icon">📈</span>
+      <span class="nav-label-wrap">
+        <span class="nav-label-text">Peak Obsession</span>
+        <span class="nav-stat-text" id="nstat-peak-obsession"></span>
+      </span>
+      <span class="nav-dot" id="ndot-peak-obsession"></span>
+    </div>
+    <div class="nav-item" data-page="forgotten">
+      <span class="nav-icon">🗂️</span>
+      <span class="nav-label-wrap">
+        <span class="nav-label-text">Forgotten Plays</span>
+        <span class="nav-stat-text" id="nstat-forgotten"></span>
+      </span>
+      <span class="nav-dot" id="ndot-forgotten"></span>
+    </div>
   </div>
 
   <div class="sidebar-section">
@@ -894,34 +997,6 @@ body {
         <span class="nav-stat-text" id="nstat-pod-bubble"></span>
       </span>
       <span class="nav-dot" id="ndot-pod-bubble"></span>
-    </div>
-  </div>
-
-  <div class="sidebar-section">
-    <div class="sidebar-section-label">Music</div>
-    <div class="nav-item" data-page="one-hit">
-      <span class="nav-icon">🎯</span>
-      <span class="nav-label-wrap">
-        <span class="nav-label-text">One Hit Wonder</span>
-        <span class="nav-stat-text" id="nstat-one-hit"></span>
-      </span>
-      <span class="nav-dot" id="ndot-one-hit"></span>
-    </div>
-    <div class="nav-item" data-page="peak-obsession">
-      <span class="nav-icon">📈</span>
-      <span class="nav-label-wrap">
-        <span class="nav-label-text">Peak Obsession</span>
-        <span class="nav-stat-text" id="nstat-peak-obsession"></span>
-      </span>
-      <span class="nav-dot" id="ndot-peak-obsession"></span>
-    </div>
-    <div class="nav-item" data-page="forgotten">
-      <span class="nav-icon">🗂️</span>
-      <span class="nav-label-wrap">
-        <span class="nav-label-text">Forgotten Plays</span>
-        <span class="nav-stat-text" id="nstat-forgotten"></span>
-      </span>
-      <span class="nav-dot" id="ndot-forgotten"></span>
     </div>
   </div>
 
@@ -1131,7 +1206,15 @@ function navigate(pageId) {
   if (page) page.classList.add('active');
   const nav = document.querySelector('[data-page="' + pageId + '"]');
   if (nav) nav.classList.add('active');
+  // Personality page gets full-viewport treatment
+  document.body.classList.toggle('personality-mode', pageId === 'personality');
+  // Close mobile sidebar on navigation
+  document.body.classList.remove('sidebar-open');
   if (State.music.length || State.podcasts.length) renderTool(pageId);
+}
+
+function toggleMobileSidebar() {
+  document.body.classList.toggle('sidebar-open');
 }
 
 document.querySelectorAll('.nav-item').forEach(item => {
@@ -1907,6 +1990,13 @@ function renderEarlyAdopterOffline(shows, showFirst, showMs, el) {
   const eaOfflineHero = `You follow <em>${shows.length} podcast${shows.length !== 1 ? 's' : ''}</em> — connect Spotify to find out how many you found before everyone else. The oldest in your history dates to <em>${oldestYear}</em>.`;
   el.innerHTML = `
     ${heroStatement(eaOfflineHero)}
+    <div style="background:var(--amber-dim);border:1px solid var(--amber);border-radius:var(--radius);padding:16px 20px;margin-bottom:16px;display:flex;gap:14px;align-items:flex-start">
+      <span style="font-size:1.1rem;flex-shrink:0">⚠️</span>
+      <div>
+        <div style="font-size:0.82rem;font-weight:600;color:var(--amber);margin-bottom:4px">This is the only tool that connects to Spotify</div>
+        <div style="font-size:0.78rem;color:var(--text2);line-height:1.6">Every other tool in this app works entirely offline — your data never leaves your device. This tool is the exception. To check how popular each show is, it makes a read-only search request to the Spotify API. <strong style="color:var(--text)">It cannot see your account, your plays, or your library.</strong> It only reads public show metadata. You stay in control — you can skip this tool entirely without losing anything.</div>
+      </div>
+    </div>
     <div class="card" style="margin-bottom:24px">
       <div class="card-title" style="margin-bottom:8px">Connect Spotify to reveal your adopter profile</div>
       <div class="card-sub" style="margin-bottom:20px">This tool checks how popular each of your shows is on Spotify today — so you can see if you were ahead of the curve or riding the wave.</div>
@@ -2348,19 +2438,22 @@ function renderPodBubble() {
   let uncategorizedMs = 0;
   const uncategorizedShows = [];
 
+  const showMatchedKeywords = {};
   for (const [show, ms] of Object.entries(showMs)) {
     const lower = show.toLowerCase();
-    let bestCat = null, bestScore = 0;
+    let bestCat = null, bestScore = 0, bestKeywords = [];
     for (const cat of BUBBLE_CATEGORIES) {
-      const score = cat.keywords.filter(k => lower.includes(k)).length;
-      if (score > bestScore) { bestScore = score; bestCat = cat; }
+      const matched = cat.keywords.filter(k => lower.includes(k));
+      if (matched.length > bestScore) { bestScore = matched.length; bestCat = cat; bestKeywords = matched; }
     }
     if (bestCat && bestScore > 0) {
       catMs[bestCat.name] += ms;
       catShows[bestCat.name].push({ show, ms });
+      showMatchedKeywords[show] = bestKeywords;
     } else {
       uncategorizedMs += ms;
       uncategorizedShows.push({ show, ms });
+      showMatchedKeywords[show] = [];
     }
   }
 
@@ -2413,6 +2506,11 @@ function renderPodBubble() {
     const barWidth = pct === 0 ? 0.5 : pct;
     const hrs = Math.round(cat.ms / 3600000 * 10) / 10;
     const topShows = cat.shows.slice(0,3).map(s => escHtml(s.show)).join(', ');
+    // Collect unique keywords that matched shows in this category
+    const allKeywords = [...new Set(cat.shows.flatMap(s => showMatchedKeywords[s.show] || []))].slice(0, 5);
+    const keywordNote = cat.name !== 'Other' && allKeywords.length
+      ? `<div style="font-size:0.68rem;color:var(--text3);margin-top:3px">matched: ${allKeywords.join(', ')}</div>`
+      : '';
     return `<div style="margin-bottom:18px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
         <span style="font-size:1.1rem">${cat.icon}</span>
@@ -2423,6 +2521,7 @@ function renderPodBubble() {
         <div style="width:${barWidth}%;height:100%;border-radius:4px;background:${cat.color};transition:width 0.6s ease"></div>
       </div>
       <div style="font-size:0.72rem;color:var(--text3)">${hrs}h · ${cat.shows.length} show${cat.shows.length !== 1 ? 's' : ''} · ${topShows}</div>
+      ${keywordNote}
     </div>`;
   }).join('');
 
@@ -2975,14 +3074,36 @@ function renderBrain() {
     brainVerdict = 'You listen to think, not just to feel. That\'s a specific kind of listening.';
   }
 
+  // Find top 3 hottest cells for callout annotations
+  function topCells(grid, n) {
+    const cells = [];
+    for (let d = 0; d < 7; d++) for (let h = 0; h < 24; h++) {
+      const v = grid[`${d}-${h}`] || 0;
+      if (v > 0) cells.push({ d, h, v });
+    }
+    return cells.sort((a,b) => b.v - a.v).slice(0, n);
+  }
+  const mTop = State.music.length    ? topCells(mGrid, 3) : [];
+  const pTop = State.podcasts.length ? topCells(pGrid, 3) : [];
+  const daysFull = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  function cellDesc(c) { return `${daysFull[c.d]} at ${fmtHour(c.h)} (${fmtNum(c.v)} plays)`; }
+  const mCallout = mTop.length ? mTop.map(cellDesc).join(', ') : null;
+  const pCallout = pTop.length ? pTop.map(cellDesc).join(', ') : null;
+
   el.innerHTML = `
     ${heroStatement(brainHero)}
     <div class="toggle-row">
       <button class="toggle-btn active" id="brain-music-btn" onclick="switchBrainMode('music')">🎵 Music</button>
       <button class="toggle-btn" id="brain-pod-btn" onclick="switchBrainMode('podcast')">🎙️ Podcasts</button>
     </div>
-    <div id="brain-music-map">${State.music.length ? renderHeatmap(mGrid, mMax, 'green') : emptyState('🎵','No music data','')}</div>
-    <div id="brain-pod-map" style="display:none">${State.podcasts.length ? renderHeatmap(pGrid, pMax, 'blue') : emptyState('🎙️','No podcast data','')}</div>
+    <div id="brain-music-map">
+      ${State.music.length ? renderHeatmap(mGrid, mMax, 'green') : emptyState('🎵','No music data','')}
+      ${mCallout ? `<div style="margin-top:10px;font-size:0.78rem;color:var(--text3)"><strong style="color:var(--accent2)">Peak moments:</strong> ${mCallout}</div>` : ''}
+    </div>
+    <div id="brain-pod-map" style="display:none">
+      ${State.podcasts.length ? renderHeatmap(pGrid, pMax, 'blue') : emptyState('🎙️','No podcast data','')}
+      ${pCallout ? `<div style="margin-top:10px;font-size:0.78rem;color:var(--text3)"><strong style="color:var(--blue)">Peak moments:</strong> ${pCallout}</div>` : ''}
+    </div>
     <div style="margin-top:20px;padding:16px 20px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm)">
       <div style="font-size:0.78rem;color:var(--text3);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em">Pattern Insight</div>
       <div style="font-size:0.92rem;color:var(--text2);line-height:1.6">${insightParts.join(' ')}</div>
@@ -3727,13 +3848,14 @@ function renderDiscoveries() {
     ? 'You\'ve been finding new music consistently for years. The algorithm feeds you, but your curiosity leads.'
     : 'Every significant discovery started with one listen. These are the ones that stuck.';
 
+  // Emotional anchor: the moment they first discovered their most-played artist
+  const topArtistFirstDateStr = topArtist
+    ? topArtist.firstDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    : null;
+
   let html = `
-    ${topArtist ? heroStatement(`You've discovered <em>${Object.keys(artistData).length} artists</em> across <em>${years.length} years</em> — ${escHtml(topArtist.artist)}, first heard in ${topArtist.firstDate.getFullYear()}, is your most played discovery at ${fmtNum(topArtist.totalPlays)} plays.`) : ''}
-    <div class="stat-row">
-      <div class="stat-box"><div class="stat-box-val" id="disc-artists">0</div><div class="stat-box-label">Artists Discovered</div></div>
-      ${State.podcasts.length ? `<div class="stat-box"><div class="stat-box-val" id="disc-shows">0</div><div class="stat-box-label">Podcasts Discovered</div></div>` : ''}
-      <div class="stat-box"><div class="stat-box-val" id="disc-years">0</div><div class="stat-box-label">Years of Listening</div></div>
-    </div>`;
+    ${topArtist ? heroStatement(`On <em>${topArtistFirstDateStr}</em> you heard <em>${escHtml(topArtist.artist)}</em> for the first time. You've played them <em>${fmtNum(topArtist.totalPlays)} times</em> since. That's where it started.`) : ''}
+    ${State.podcasts.length ? `<div class="stat-row"><div class="stat-box"><div class="stat-box-val" id="disc-shows">0</div><div class="stat-box-label">Podcast Shows Discovered</div></div></div>` : ''}`;
 
   // Biggest music finds
   if (topMusic.length) {
@@ -3803,10 +3925,8 @@ function renderDiscoveries() {
 
   html += toolVerdict(discVerdict);
   el.innerHTML = html;
-  animateCount(document.getElementById('disc-artists'), Object.keys(artistData).length);
   const showsEl = document.getElementById('disc-shows');
   if (showsEl) animateCount(showsEl, Object.keys(showData).length);
-  animateCount(document.getElementById('disc-years'), years.length);
 }
 
 /* ═══════════════════════════════════════════
