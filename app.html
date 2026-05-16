@@ -3397,7 +3397,101 @@ function renderPeakObsession() {
   const top30 = Object.entries(trackPlays).sort((a,b) => b[1]-a[1]).slice(0,30);
 
   const now = new Date();
-  const thirtyDaysAgo = new Date(now - 30*86400000);
+  const nowMs = now.getTime();
+  const thirtyDaysAgo = new Date(nowMs - 30*86400000);
+  const WIN4W = 28 * 86400000;
+  const WIN2W = 14 * 86400000;
+
+  // Classify a track's play shape from its sorted timestamp array
+  function classifyShape(tsMs, totalPlays) {
+    if (!tsMs || tsMs.length < 3) return null;
+    const last = tsMs[tsMs.length - 1];
+
+    // Find 4-week peak count
+    let peakCount4W = 0;
+    let left4 = 0;
+    for (let ri = 0; ri < tsMs.length; ri++) {
+      while (tsMs[ri] - tsMs[left4] > WIN4W) left4++;
+      const cnt = ri - left4 + 1;
+      if (cnt > peakCount4W) peakCount4W = cnt;
+    }
+
+    // A Constant: recent plays (last 90 days) > 20% of peak
+    const recentCount = tsMs.filter(t => nowMs - t < 90 * 86400000).length;
+    if (recentCount > peakCount4W * 0.2) {
+      return { label: 'A Constant', color: 'var(--accent2)', bg: 'rgba(29,185,84,0.12)' };
+    }
+
+    // Build 2-week buckets for shape detection
+    const first = tsMs[0];
+    const nBuckets = Math.max(2, Math.ceil((last - first) / WIN2W) + 1);
+    const buckets = new Array(nBuckets).fill(0);
+    for (const t of tsMs) buckets[Math.min(nBuckets - 1, Math.floor((t - first) / WIN2W))]++;
+    const peakBkt = Math.max(...buckets);
+    const peakBktIdx = buckets.indexOf(peakBkt);
+
+    // A Return: valley (zero bucket) after peak, then another spike ≥ 30% of peak
+    let foundValley = false;
+    for (let i = peakBktIdx + 1; i < buckets.length; i++) {
+      if (!foundValley && buckets[i] === 0) foundValley = true;
+      if (foundValley && buckets[i] >= peakBkt * 0.3) {
+        return { label: 'A Return', color: 'var(--purple)', bg: 'rgba(156,92,224,0.12)' };
+      }
+    }
+
+    // A Moment: >80% of plays in a 2-week window
+    let max2W = 0, left2 = 0;
+    for (let ri = 0; ri < tsMs.length; ri++) {
+      while (tsMs[ri] - tsMs[left2] > WIN2W) left2++;
+      max2W = Math.max(max2W, ri - left2 + 1);
+    }
+    if (max2W / totalPlays > 0.8) {
+      return { label: 'A Moment', color: 'var(--amber)', bg: 'rgba(224,160,80,0.12)' };
+    }
+
+    return { label: 'A Phase', color: '#6ec97d', bg: 'rgba(110,201,125,0.12)' };
+  }
+
+  // Days from peak window end to first zero 2-week window afterward
+  function speedToZero(tsMs, peakWindowEnd) {
+    if (!peakWindowEnd) return null;
+    const afterPeak = tsMs.filter(t => t > peakWindowEnd);
+    if (!afterPeak.length) return 0;
+    const lastTs = afterPeak[afterPeak.length - 1];
+    let t = peakWindowEnd;
+    while (t <= lastTs + WIN2W) {
+      if (afterPeak.filter(p => p >= t && p < t + WIN2W).length === 0) {
+        return Math.round((t - peakWindowEnd) / 86400000);
+      }
+      t += WIN2W;
+    }
+    return null; // never dropped to zero
+  }
+
+  // Hidden Constant: most consistent + longest span + still recently played (all tracks)
+  let hiddenConstant = null, hiddenScore = -Infinity;
+  for (const [key, rawDates] of Object.entries(trackDates)) {
+    if (rawDates.length < 10) continue;
+    const tsMs = [...rawDates].map(d => d.getTime()).sort((a,b) => a-b);
+    const spanMonths = (tsMs[tsMs.length-1] - tsMs[0]) / (30 * 86400000);
+    if (spanMonths < 3) continue;
+    if (tsMs.filter(t => nowMs - t < 90 * 86400000).length === 0) continue;
+    const monthMap = {};
+    for (const t of tsMs) {
+      const d = new Date(t);
+      const mk = `${d.getFullYear()}-${String(d.getMonth()).padStart(2,'0')}`;
+      monthMap[mk] = (monthMap[mk] || 0) + 1;
+    }
+    const counts = Object.values(monthMap);
+    const mean = counts.reduce((a,b) => a+b, 0) / counts.length;
+    const cv = Math.sqrt(counts.reduce((a,b) => a + Math.pow(b - mean, 2), 0) / counts.length) / (mean || 1);
+    const score = spanMonths / (cv + 0.1);
+    if (score > hiddenScore) {
+      hiddenScore = score;
+      const sep = key.indexOf('||');
+      hiddenConstant = { artist: key.slice(0, sep), track: key.slice(sep + 2), firstDate: new Date(tsMs[0]) };
+    }
+  }
 
   const results = [];
   for (const [key, totalPlays] of top30) {
@@ -3405,22 +3499,20 @@ function renderPeakObsession() {
     const artist = key.slice(0, sep);
     const track  = key.slice(sep + 2);
     const dates = trackDates[key].sort((a,b) => a-b);
+    const tsMs = dates.map(d => d.getTime());
 
     // Find 4-week rolling window with most plays (O(n) sliding window)
-    const WINDOW_MS = 28 * 86400000;
-    const tsMs = dates.map(d => d.getTime());
-    let peakCount = 0, peakDate = dates[0], left = 0;
+    let peakCount = 0, peakDate = dates[0], peakWindowEnd = 0, left = 0;
     for (let right = 0; right < tsMs.length; right++) {
-      while (tsMs[right] - tsMs[left] > WINDOW_MS) left++;
+      while (tsMs[right] - tsMs[left] > WIN4W) left++;
       const count = right - left + 1;
-      if (count > peakCount) { peakCount = count; peakDate = dates[left]; }
+      if (count > peakCount) { peakCount = count; peakDate = dates[left]; peakWindowEnd = tsMs[right]; }
     }
 
     const recentPlays = dates.filter(d => d >= thirtyDaysAgo).length;
     const dropOff = peakCount - recentPlays;
 
-    // Build weekly histogram for sparkline (last 52 weeks from first play)
-    const firstDate = dates[0];
+    // Build weekly histogram for sparkline
     const weeks = {};
     for (const d of dates) {
       const wk = weekKey(d.toISOString());
@@ -3428,7 +3520,9 @@ function renderPeakObsession() {
     }
 
     const lastPlayed = dates[dates.length - 1];
-    results.push({ artist, track, totalPlays, peakCount, peakDate, recentPlays, dropOff, weeks, lastPlayed });
+    const shape = classifyShape(tsMs, totalPlays);
+    const speedDays = speedToZero(tsMs, peakWindowEnd);
+    results.push({ artist, track, totalPlays, peakCount, peakDate, recentPlays, dropOff, weeks, lastPlayed, shape, speedDays });
   }
   results.sort((a,b) => b.lastPlayed - a.lastPlayed);
 
@@ -3439,9 +3533,7 @@ function renderPeakObsession() {
 
   const topByDrop = [...results].sort((a,b) => b.dropOff - a.dropOff)[0];
   const peakDateStr = topByDrop.peakDate.toLocaleDateString('en-US',{month:'short',year:'numeric'});
-  const lastPlayedStr = topByDrop.lastPlayed.toLocaleDateString('en-US',{month:'short',year:'numeric'});
-  const monthsSincePeak = Math.round((Date.now() - topByDrop.lastPlayed) / (30 * 86400000));
-  // Check if most peaks are followed by zero plays
+  const monthsSincePeak = Math.round((nowMs - topByDrop.lastPlayed) / (30 * 86400000));
   const burnedOut = results.filter(r => r.recentPlays === 0).length;
   const gradualFade = results.filter(r => r.recentPlays > 0 && r.recentPlays < r.peakCount / 2).length;
   const poVerdict = burnedOut > results.length / 2
@@ -3449,23 +3541,59 @@ function renderPeakObsession() {
     : gradualFade > results.length / 2
     ? 'You don\'t abandon songs. You just slowly outgrow them.'
     : 'A few of these never got old. You know which ones.';
-  let html = `
+
+  // Speed of Moving On verdict
+  const speedSamples = results.filter(r => r.speedDays !== null).map(r => r.speedDays);
+  const avgSpeed = speedSamples.length > 0 ? speedSamples.reduce((a,b) => a+b, 0) / speedSamples.length : null;
+  const speedVerdict = avgSpeed === null ? null
+    : avgSpeed < 14 ? 'You move on fast. Most obsessions last less than two weeks before you\'re done.'
+    : avgSpeed < 60 ? 'You give songs a proper run. A few weeks of intensity, then you let them go.'
+    : 'You\'re loyal to your obsessions. When something gets you, it keeps you for a while.';
+
+  let html = '';
+
+  // Hidden Constant hero card — above everything else
+  if (hiddenConstant) {
+    const firstDateStr = hiddenConstant.firstDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    html += `
+    <div style="border-left:3px solid var(--accent2);background:var(--bg2);border-radius:var(--radius);padding:32px 36px;margin-bottom:44px">
+      <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--accent2);margin-bottom:18px">The Hidden Constant</div>
+      <div style="font-family:'Fraunces',serif;font-size:clamp(1.05rem,2.5vw,1.4rem);font-weight:700;color:var(--text);line-height:1.35;margin-bottom:10px">
+        While everything else peaked and faded, &ldquo;${escHtml(hiddenConstant.track)}&rdquo; by ${escHtml(hiddenConstant.artist)} has just always been there.
+      </div>
+      <div style="font-size:0.9rem;color:var(--text2);line-height:1.75;margin-bottom:18px">
+        First played ${firstDateStr}. Still playing. No peak. No drop. Just always present.
+      </div>
+      <div style="font-family:'Fraunces',serif;font-size:1rem;font-style:italic;color:var(--accent2)">
+        That's probably your most honest favourite song.
+      </div>
+    </div>`;
+  }
+
+  html += `
     ${heroStatement(`Your most intense obsession was <em>"${escHtml(topByDrop.track)}"</em> by ${escHtml(topByDrop.artist)} — <em>${topByDrop.peakCount} plays in a single month</em> in ${peakDateStr}. You haven't touched it in <em>${monthsSincePeak} months</em>.`)}
     <div class="evidence-section">
       <div class="evidence-label">The evidence — sorted by biggest drop from peak</div>
       <ul class="result-list">`;
 
   results.forEach((r, i) => {
-    const peakDateStr = r.peakDate.toLocaleDateString('en-US',{month:'short',year:'numeric'});
-    const lastPlayedStr2 = r.lastPlayed.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    const itemPeakDateStr = r.peakDate.toLocaleDateString('en-US',{month:'short',year:'numeric'});
+    const lastPlayedStr = r.lastPlayed.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
     const spark = buildSparkline(r.weeks, 80, 28);
     const hiddenCls = i >= 5 ? ' class="show-more-item"' : '';
+    const shapeTag = r.shape
+      ? ` <span style="display:inline-block;font-size:0.62rem;font-weight:700;letter-spacing:0.06em;padding:2px 8px;border-radius:20px;background:${r.shape.bg};color:${r.shape.color};vertical-align:middle">${r.shape.label.toUpperCase()}</span>`
+      : '';
+    const speedLine = r.speedDays !== null
+      ? `<div style="font-size:0.75rem;color:var(--text3);margin-top:5px;font-style:italic">Peak to near-zero in ${r.speedDays} day${r.speedDays !== 1 ? 's' : ''}.</div>`
+      : '';
     html += `<li${hiddenCls}>
       <div class="result-num">${i+1}</div>
       <div class="result-body">
-        <div class="result-title">${escHtml(r.track)}</div>
+        <div class="result-title">${escHtml(r.track)}${shapeTag}</div>
         <div class="result-sub">${escHtml(r.artist)}</div>
-        <div style="font-size:0.78rem;color:var(--text3);margin-top:4px">Peaked ${peakDateStr} · last played ${lastPlayedStr2}</div>
+        <div style="font-size:0.78rem;color:var(--text3);margin-top:4px">Peaked ${itemPeakDateStr} · last played ${lastPlayedStr}</div>
+        ${speedLine}
         <button class="item-details-toggle" onclick="toggleDetails(this)" aria-expanded="false">+ chart</button>
         <div class="item-details">
           <div style="margin-bottom:10px">${spark}</div>
@@ -3481,6 +3609,15 @@ function renderPeakObsession() {
   html += '</ul>';
   if (results.length > 5) html += `<button class="show-more-btn" onclick="revealMore(this)">Show ${results.length - 5} more</button>`;
   html += '</div>';
+
+  if (speedVerdict) {
+    html += `
+    <div class="evidence-section">
+      <div class="evidence-label">Speed of Moving On</div>
+      <div style="font-family:'Fraunces',serif;font-size:1.1rem;font-weight:700;color:var(--text);line-height:1.45">${speedVerdict}</div>
+    </div>`;
+  }
+
   html += toolVerdict(poVerdict);
   el.innerHTML = html;
 }
