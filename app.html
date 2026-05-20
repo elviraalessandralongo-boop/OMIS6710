@@ -1612,6 +1612,31 @@ function animateDonuts(container) {
   }, 50);
 }
 
+function animateRadar(container) {
+  const polygon = container.querySelector('#radar-polygon');
+  if (!polygon) return;
+  const finalPath = polygon.dataset.finalPath;
+  if (!finalPath) return;
+  const CX = 130, CY = 130;
+  const coords = [...finalPath.matchAll(/[ML]\s*([\d.]+),([\d.]+)/g)].map(m => [parseFloat(m[1]), parseFloat(m[2])]);
+  const duration = 800;
+  const t0 = performance.now();
+  function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+  function frame(now) {
+    const t = Math.min((now - t0) / duration, 1);
+    const e = easeOut(t);
+    const d = coords.map((c, i) => {
+      const x = (CX + (c[0] - CX) * e).toFixed(2);
+      const y = (CY + (c[1] - CY) * e).toFixed(2);
+      return `${i === 0 ? 'M' : 'L'} ${x},${y}`;
+    }).join(' ') + ' Z';
+    polygon.setAttribute('d', d);
+    if (t < 1) requestAnimationFrame(frame);
+    else container.querySelectorAll('.radar-dot').forEach(dot => { dot.style.opacity = '1'; });
+  }
+  requestAnimationFrame(frame);
+}
+
 // Shown on every podcast tool page when the dataset has fewer than 10 podcast records
 function podcastInsufficientDataHtml() {
   const musicTools = [
@@ -4272,6 +4297,78 @@ function renderPersonality() {
   const hoursStatExists = stats.some(s => s.label.includes('hour'));
   if (!hoursStatExists) stats.push({ label: 'Hours of audio consumed', val: fmtNum(totalHours) + 'h', note: 'across all history' });
 
+  // ── Radar Dimension Scores ──
+  // 1. Completion
+  const radarCompletion = podCompletionRate !== null ? Math.round(podCompletionRate * 100) : 50;
+
+  // 2. Loyalty — % of top 10 artists present in 3+ consecutive years
+  let radarLoyalty = 50, radarLoyaltyCount = 0, radarLoyaltyTotal = 0;
+  if (State.music.length) {
+    const _artPlays = {}, _artYears = {};
+    for (const r of State.music) {
+      const a = r.master_metadata_album_artist_name;
+      if (!a) continue;
+      _artPlays[a] = (_artPlays[a] || 0) + 1;
+      const yr = new Date(r.ts).getFullYear();
+      if (!_artYears[a]) _artYears[a] = new Set();
+      _artYears[a].add(yr);
+    }
+    const top10artists = Object.entries(_artPlays).sort((a,b) => b[1]-a[1]).slice(0,10).map(e => e[0]);
+    radarLoyaltyTotal = top10artists.length;
+    radarLoyaltyCount = top10artists.filter(a => {
+      const yrs = [...(_artYears[a]||new Set())].sort((a,b) => a-b);
+      for (let j = 0; j <= yrs.length - 3; j++) if (yrs[j+2] - yrs[j] === 2) return true;
+      return false;
+    }).length;
+    radarLoyalty = Math.round((radarLoyaltyCount / Math.max(radarLoyaltyTotal, 1)) * 100);
+  }
+
+  // 3. Discovery — % of plays that are autoplay-initiated
+  let radarDiscovery = 50;
+  {
+    const allRec = [...State.music, ...State.podcasts];
+    const withReason = allRec.filter(r => r.reason_start);
+    if (withReason.length > 0) {
+      radarDiscovery = Math.round(withReason.filter(r => r.reason_start === 'autoplay').length / withReason.length * 100);
+    }
+  }
+
+  // 4. Depth — % of music plays beyond each artist's top 3 tracks
+  let radarDepth = 50;
+  if (State.music.length) {
+    const _artTr = {};
+    for (const r of State.music) {
+      const a = r.master_metadata_album_artist_name, t = r.master_metadata_track_name;
+      if (!a || !t) continue;
+      if (!_artTr[a]) _artTr[a] = {};
+      _artTr[a][t] = (_artTr[a][t] || 0) + 1;
+    }
+    let totP = 0, deepP = 0;
+    for (const tracks of Object.values(_artTr)) {
+      const vals = Object.values(tracks).sort((a,b) => b-a);
+      const tot = vals.reduce((s,v) => s+v, 0);
+      totP += tot;
+      deepP += tot - vals.slice(0,3).reduce((s,v) => s+v, 0);
+    }
+    radarDepth = totP > 0 ? Math.round(deepP / totP * 100) : 50;
+  }
+
+  // 5. Consistency — how evenly distributed across days of week (0=very uneven, 100=perfectly even)
+  let radarConsistency = 50;
+  {
+    const allRec = [...State.music, ...State.podcasts];
+    const dow = [0,0,0,0,0,0,0];
+    for (const r of allRec) { const d = tsToLocal(r.ts); dow[(d.getDay()+6)%7]++; }
+    const tot = dow.reduce((s,v) => s+v, 0);
+    if (tot > 0) {
+      const mean = tot / 7;
+      const cv = Math.sqrt(dow.reduce((s,v) => s + Math.pow(v-mean,2), 0) / 7) / mean;
+      radarConsistency = Math.round(Math.max(0, 1 - cv / Math.sqrt(6)) * 100);
+    }
+  }
+
+  const radarScores = [radarCompletion, radarLoyalty, radarDiscovery, radarDepth, radarConsistency];
+
   // Monthly listening trend (last 24 months)
   const monthlyTrend = (() => {
     const months = {};
@@ -4405,6 +4502,47 @@ function renderPersonality() {
     </div>`
   ).join('');
 
+  // ── Radar Chart HTML ──
+  const radarHtml = (() => {
+    const labels = ['Completion', 'Loyalty', 'Discovery', 'Depth', 'Consistency'];
+    const N = 5, CX = 130, CY = 130, R = 90;
+    const angles = Array.from({length: N}, (_, k) => -Math.PI/2 + k * 2*Math.PI/N);
+    const pt = (r, a) => [CX + r*Math.cos(a), CY + r*Math.sin(a)];
+    const pentPath = f => angles.map((a,i) => { const [x,y]=pt(R*f,a); return `${i?'L':'M'} ${x.toFixed(1)},${y.toFixed(1)}`; }).join(' ') + ' Z';
+    const scorePath = angles.map((a,i) => { const [x,y]=pt(R*Math.min(radarScores[i],100)/100,a); return `${i?'L':'M'} ${x.toFixed(1)},${y.toFixed(1)}`; }).join(' ') + ' Z';
+    const grids = [0.25,0.5,0.75,1].map(f => `<path d="${pentPath(f)}" fill="none" stroke="var(--border)" stroke-width="1"/>`).join('');
+    const axes = angles.map(a => { const [x,y]=pt(R,a); return `<line x1="${CX}" y1="${CY}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="1"/>`; }).join('');
+    const lbls = angles.map((a,i) => {
+      const [x,y] = pt(R+20, a);
+      const cos = Math.cos(a);
+      const anchor = cos > 0.3 ? 'start' : cos < -0.3 ? 'end' : 'middle';
+      return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}" dominant-baseline="middle" font-size="10" fill="var(--text3)" font-family="Space Grotesk,sans-serif">${labels[i]}</text>`;
+    }).join('');
+    const dots = angles.map((a,i) => { const [x,y]=pt(R*Math.min(radarScores[i],100)/100,a); return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" fill="var(--accent)" opacity="0" class="radar-dot"/>`; }).join('');
+    const centerPath = `M ${CX},${CY} ` + Array(N-1).fill(`L ${CX},${CY}`).join(' ') + ' Z';
+    const svg = `<svg width="260" height="260" viewBox="0 0 260 260" style="display:block;margin:0 auto;max-width:100%">${grids}${axes}<path id="radar-polygon" d="${centerPath}" fill="rgba(29,185,84,0.25)" stroke="rgba(29,185,84,0.8)" stroke-width="2" stroke-linejoin="round" data-final-path="${scorePath}"/>${dots}${lbls}</svg>`;
+    const consDesc = radarConsistency >= 80 ? 'almost every day'
+      : radarConsistency >= 60 ? 'on most days'
+      : radarConsistency >= 40 ? 'several times a week'
+      : radarConsistency >= 20 ? 'when the mood strikes'
+      : 'in occasional bursts';
+    const legendDefs = [
+      ['Completion',  radarCompletion,  `You finish ${radarCompletion}% of what you start.`],
+      ['Loyalty',     radarLoyalty,     `${radarLoyaltyCount} of your top ${radarLoyaltyTotal} artists have been with you for 3+ years.`],
+      ['Discovery',   radarDiscovery,   `${radarDiscovery}% of your listening starts from autoplay — you're open to being surprised.`],
+      ['Depth',       radarDepth,       `You go beyond the hits ${radarDepth}% of the time.`],
+      ['Consistency', radarConsistency, `You listen ${consDesc}.`],
+    ];
+    const legend = legendDefs.map(([name, score, desc]) =>
+      `<div style="display:flex;align-items:baseline;gap:12px;padding:7px 0;border-bottom:1px solid var(--border)">
+        <div style="width:82px;flex-shrink:0;font-size:0.7rem;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.07em">${name}</div>
+        <div style="width:30px;flex-shrink:0;font-family:'Fraunces',serif;font-size:1rem;font-weight:700;color:var(--accent);text-align:right">${score}</div>
+        <div style="font-size:0.77rem;color:var(--text3);line-height:1.5">${desc}</div>
+      </div>`
+    ).join('');
+    return `<div>${svg}<div style="max-width:460px;margin:16px auto 0">${legend}</div></div>`;
+  })();
+
   // Build the full content but reveal it with a dramatic animation
   const fullContentHtml = `
     <div style="background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:var(--radius);padding:48px 40px 40px;margin-bottom:32px;text-align:center">
@@ -4413,7 +4551,8 @@ function renderPersonality() {
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0"><path d="M7 1v8M4 6l3 3 3-3M2 11h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Save your result
       </button>
-      <div id="personality-subhead" style="font-family:'Fraunces',serif;font-style:italic;font-size:1.15rem;color:var(--text2);margin-bottom:32px;opacity:0;transition:opacity 0.6s ease">Here's why.</div>
+      <div id="personality-subhead" style="font-family:'Fraunces',serif;font-style:italic;font-size:1.15rem;color:var(--text2);margin-bottom:24px;opacity:0;transition:opacity 0.6s ease">Here's why.</div>
+      <div id="personality-radar" style="max-width:520px;margin:0 auto 28px;opacity:0;transition:opacity 0.6s ease">${radarHtml}</div>
       <div id="personality-supporting" style="max-width:480px;margin:0 auto;opacity:0;transition:opacity 0.6s ease">
         ${supportingHtml}
       </div>
@@ -4489,17 +4628,21 @@ function renderPersonality() {
             const sub = document.getElementById('personality-subhead');
             if (sub) sub.style.opacity = '1';
             setTimeout(() => {
-              const sup = document.getElementById('personality-supporting');
-              if (sup) sup.style.opacity = '1';
+              const radar = document.getElementById('personality-radar');
+              if (radar) { radar.style.opacity = '1'; animateRadar(el); }
               setTimeout(() => {
-                const prov = document.getElementById('personality-provocation');
-                if (prov) prov.style.opacity = '1';
+                const sup = document.getElementById('personality-supporting');
+                if (sup) sup.style.opacity = '1';
                 setTimeout(() => {
-                  const react = document.getElementById('personality-react');
-                  if (react) react.style.opacity = '1';
+                  const prov = document.getElementById('personality-provocation');
+                  if (prov) prov.style.opacity = '1';
+                  setTimeout(() => {
+                    const react = document.getElementById('personality-react');
+                    if (react) react.style.opacity = '1';
+                  }, 400);
                 }, 400);
-              }, 400);
-            }, 400);
+              }, 600);
+            }, 500);
           }, 500);
         }, 80);
       });
@@ -4508,10 +4651,11 @@ function renderPersonality() {
     el.innerHTML = fullContentHtml;
     // Instant show without animation on re-visit
     setTimeout(() => {
-      ['personality-label-reveal','personality-subhead','personality-supporting','personality-provocation','personality-react'].forEach(id => {
+      ['personality-label-reveal','personality-subhead','personality-radar','personality-supporting','personality-provocation','personality-react'].forEach(id => {
         const el2 = document.getElementById(id);
         if (el2) el2.style.opacity = '1';
       });
+      animateRadar(el);
     }, 50);
   }
 
