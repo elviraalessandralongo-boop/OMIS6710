@@ -1595,6 +1595,15 @@ function animateBars(container) {
   }, 100);
 }
 
+// Drives gauge-fill arc animation — sets stroke-dashoffset to data-final-offset after render
+function animateGauges(container) {
+  setTimeout(() => {
+    container.querySelectorAll('.gauge-fill').forEach(path => {
+      path.style.strokeDashoffset = path.dataset.finalOffset;
+    });
+  }, 100);
+}
+
 // Shown on every podcast tool page when the dataset has fewer than 10 podcast records
 function podcastInsufficientDataHtml() {
   const musicTools = [
@@ -2139,20 +2148,40 @@ function renderHooked() {
   const gatewayDateStr = gateway ? gateway.firstTs.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : null;
 
   // ── Build HTML ──
-  const contrastHtml = (intentPct !== null && autoPct !== null) ? `
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:28px 32px;margin-bottom:32px">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:20px">
-        <div style="text-align:center">
-          <div style="font-family:'Fraunces',serif;font-size:2.4rem;font-weight:700;color:var(--text)">${intentPct}%</div>
-          <div style="font-size:0.78rem;color:var(--text3);margin-top:6px;line-height:1.4">of what you deliberately choose, you finish</div>
+  // Semicircular arc gauges: stroke-dasharray/dashoffset drives the fill, animated by animateGauges()
+  let contrastHtml = '';
+  if (intentPct !== null && autoPct !== null) {
+    const GAUGE_R   = 80;                         // radius of the arc path
+    const ARC_LEN   = (Math.PI * GAUGE_R).toFixed(2); // total semicircle length ≈ 251.33
+    const arcPath   = `M 20 100 A ${GAUGE_R} ${GAUGE_R} 0 0 0 180 100`;
+    const autoColor = autoPct > intentPct ? 'rgba(30,215,96,1.0)' : 'rgba(29,185,84,0.6)';
+
+    function makeGauge(pct, fillColor, label) {
+      const finalOffset = (Math.PI * GAUGE_R * (1 - pct / 100)).toFixed(2);
+      return `
+        <div style="display:flex;flex-direction:column;align-items:center">
+          <svg viewBox="0 0 200 110" style="width:100%;max-width:200px">
+            <path d="${arcPath}" fill="none" stroke="var(--border)" stroke-width="12" stroke-linecap="round"/>
+            <path d="${arcPath}" fill="none" stroke="${fillColor}" stroke-width="12" stroke-linecap="round"
+              class="gauge-fill"
+              style="stroke-dasharray:${ARC_LEN};stroke-dashoffset:${ARC_LEN};transition:stroke-dashoffset 700ms cubic-bezier(0.4,0,0.2,1)"
+              data-final-offset="${finalOffset}"/>
+            <text x="100" y="72" text-anchor="middle" dominant-baseline="middle"
+              font-family="'Fraunces',serif" font-size="36" font-weight="700" fill="var(--text)">${pct}%</text>
+          </svg>
+          <div style="font-size:0.75rem;color:var(--text3);margin-top:4px;text-align:center;line-height:1.4">${label}</div>
+        </div>`;
+    }
+
+    contrastHtml = `
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:28px 32px;margin-bottom:32px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:20px">
+          ${makeGauge(intentPct, 'rgba(29,185,84,0.6)', 'When you chose it')}
+          ${makeGauge(autoPct,   autoColor,             'When it just came on')}
         </div>
-        <div style="text-align:center">
-          <div style="font-family:'Fraunces',serif;font-size:2.4rem;font-weight:700;color:var(--accent2)">${autoPct}%</div>
-          <div style="font-size:0.78rem;color:var(--text3);margin-top:6px;line-height:1.4">of what just comes on, you finish</div>
-        </div>
-      </div>
-      <div style="border-top:1px solid var(--border);padding-top:16px;font-size:0.88rem;color:var(--text2);line-height:1.5;font-style:italic">${contrastVerdict}</div>
-    </div>` : '';
+        <div style="border-top:1px solid var(--border);padding-top:16px;font-size:0.88rem;color:var(--text2);line-height:1.5;font-style:italic">${contrastVerdict}</div>
+      </div>`;
+  }
 
   const gatewayHtml = gateway ? `
     <div style="background:var(--accent-dim);border:1px solid rgba(29,185,84,0.2);border-radius:var(--radius);padding:24px 28px;margin-bottom:32px">
@@ -2203,6 +2232,7 @@ function renderHooked() {
   el.innerHTML = html;
   el.innerHTML += toolVerdict(hkVerdict);
   animateBars(el);
+  animateGauges(el);
 }
 
 /* ═══════════════════════════════════════════
