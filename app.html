@@ -4778,7 +4778,7 @@ function renderMusicBubble() {
     : `Your top 3 artists account for only <strong style="color:var(--accent2)">${top3Pct}%</strong> of your music listening. You spread yourself around.`;
 
   const over10h = artistList.filter(a => a.hours >= 10).length;
-  const line2 = `You have <strong style="color:var(--accent2)">${over10h}</strong> artist${over10h !== 1 ? 's' : ''} you've given more than 10 hours to. You actually know their catalogues.`;
+  const line2 = `You've given <strong style="color:var(--accent2)">${over10h}</strong> artist${over10h !== 1 ? 's' : ''} more than just a passing listen.`;
 
   const topA = top20[0];
   const secA = top20[1];
