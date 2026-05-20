@@ -1063,35 +1063,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   </div>
 
   <div class="sidebar-section">
-    <div class="sidebar-section-label">Music</div>
-    <div class="nav-item" data-page="one-hit">
-      <span class="nav-icon">🎯</span>
-      <span class="nav-label-wrap">
-        <span class="nav-label-text">One Hit Wonder</span>
-        <span class="nav-stat-text" id="nstat-one-hit"></span>
-      </span>
-      <span class="nav-dot" id="ndot-one-hit"></span>
-    </div>
-    <div class="nav-item" data-page="peak-obsession">
-      <span class="nav-icon">📈</span>
-      <span class="nav-label-wrap">
-        <span class="nav-label-text">Peak Obsession</span>
-        <span class="nav-stat-text" id="nstat-peak-obsession"></span>
-      </span>
-      <span class="nav-dot" id="ndot-peak-obsession"></span>
-    </div>
-    <div class="nav-item" data-page="forgotten">
-      <span class="nav-icon">🗂️</span>
-      <span class="nav-label-wrap">
-        <span class="nav-label-text">Forgotten Plays</span>
-        <span class="nav-stat-text" id="nstat-forgotten"></span>
-      </span>
-      <span class="nav-dot" id="ndot-forgotten"></span>
-    </div>
-  </div>
-
-  <div class="sidebar-section">
-    <div class="sidebar-section-label">Podcasts</div>
+    <div class="sidebar-section-label">Podcast Tools</div>
     <div class="nav-item" data-page="guilt-queue">
       <span class="nav-icon">😬</span>
       <span class="nav-label-wrap">
@@ -1116,7 +1088,6 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
       </span>
       <span class="nav-dot" id="ndot-binge"></span>
     </div>
-
     <div class="nav-item" data-page="pod-bubble">
       <span class="nav-icon">🫧</span>
       <span class="nav-label-wrap">
@@ -1128,7 +1099,39 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   </div>
 
   <div class="sidebar-section">
-    <div class="sidebar-section-label">Synthesis</div>
+    <div class="sidebar-section-label">Music Tools</div>
+    <div class="nav-item" data-page="peak-obsession">
+      <span class="nav-icon">📈</span>
+      <span class="nav-label-wrap">
+        <span class="nav-label-text">Peak Obsession</span>
+        <span class="nav-stat-text" id="nstat-peak-obsession"></span>
+      </span>
+      <span class="nav-dot" id="ndot-peak-obsession"></span>
+    </div>
+    <div class="nav-item" data-page="one-hit">
+      <span class="nav-icon">🎯</span>
+      <span class="nav-label-wrap">
+        <span class="nav-label-text">One Hit Wonder</span>
+        <span class="nav-stat-text" id="nstat-one-hit"></span>
+      </span>
+      <span class="nav-dot" id="ndot-one-hit"></span>
+    </div>
+    <div class="nav-item" data-page="forgotten">
+      <span class="nav-icon">🗂️</span>
+      <span class="nav-label-wrap">
+        <span class="nav-label-text">Forgotten Plays</span>
+        <span class="nav-stat-text" id="nstat-forgotten"></span>
+      </span>
+      <span class="nav-dot" id="ndot-forgotten"></span>
+    </div>
+    <div class="nav-item" data-page="music-bubble">
+      <span class="nav-icon">🎵</span>
+      <span class="nav-label-wrap">
+        <span class="nav-label-text">Your Music Bubble</span>
+        <span class="nav-stat-text" id="nstat-music-bubble"></span>
+      </span>
+      <span class="nav-dot" id="ndot-music-bubble"></span>
+    </div>
     <div class="nav-item" data-page="brain">
       <span class="nav-icon">🧠</span>
       <span class="nav-label-wrap">
@@ -1137,21 +1140,17 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
       </span>
       <span class="nav-dot" id="ndot-brain"></span>
     </div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Synthesis</div>
     <div class="nav-item" data-page="personality">
       <span class="nav-icon">🪞</span>
       <span class="nav-label-wrap">
-        <span class="nav-label-text">Your Personality</span>
+        <span class="nav-label-text">Your Listener Personality</span>
         <span class="nav-stat-text" id="nstat-personality"></span>
       </span>
       <span class="nav-dot" id="ndot-personality"></span>
-    </div>
-    <div class="nav-item" data-page="music-bubble">
-      <span class="nav-icon">🎵</span>
-      <span class="nav-label-wrap">
-        <span class="nav-label-text">Music Bubble</span>
-        <span class="nav-stat-text" id="nstat-music-bubble"></span>
-      </span>
-      <span class="nav-dot" id="ndot-music-bubble"></span>
     </div>
   </div>
 
@@ -4407,170 +4406,184 @@ function renderHome() {
 ═══════════════════════════════════════════ */
 function renderMusicBubble() {
   const el = document.getElementById('music-bubble-content');
-  if (!State.music.length || State.music.length < 5) {
-    el.innerHTML = emptyState('🎵','Not enough music history to build your bubble yet','The more you listen, the more interesting this gets.');
-    return;
-  }
 
-  // Aggregate ms_played per artist
+  // Aggregate — filter records, exclude short plays and nulls
   const artistMs = {};
   for (const r of State.music) {
+    if (!r.master_metadata_track_name) continue;
+    if ((r.ms_played || 0) < 10000) continue;
     const artist = r.master_metadata_album_artist_name;
     if (!artist) continue;
     artistMs[artist] = (artistMs[artist] || 0) + (r.ms_played || 0);
   }
 
-  const totalMs = Object.values(artistMs).reduce((a, b) => a + b, 0);
-  const top20 = Object.entries(artistMs)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 20)
-    .map(([name, ms]) => ({ name, ms, hours: Math.round(ms / 3600000 * 10) / 10, pct: ms / totalMs }));
+  const artistList = Object.entries(artistMs)
+    .map(([name, ms]) => ({ name, ms, hours: Math.round(ms / 3600000 * 10) / 10 }))
+    .sort((a, b) => b.ms - a.ms);
 
-  if (top20.length < 1) {
-    el.innerHTML = emptyState('🎵','Not enough music history','Listen to more music and come back.');
+  if (artistList.length < 5) {
+    el.innerHTML = emptyState('🎵', 'Not enough music history to build your bubble', 'The more you listen, the more interesting this gets.');
     return;
   }
 
-  // Insight stats
-  const top3Pct = Math.round(top20.slice(0, 3).reduce((s, a) => s + a.pct, 0) * 100);
-  const top3Note = top3Pct > 50 ? " That's a lot of loyalty." : top3Pct < 30 ? " You spread yourself around." : "";
-  const over10h = Object.values(artistMs).filter(ms => ms >= 10 * 3600000).length;
-  const topArtist = top20[0];
+  const top20 = artistList.slice(0, 20);
+  const totalMs = artistList.reduce((s, a) => s + a.ms, 0);
+  top20.forEach(a => { a.pct = a.ms / totalMs; });
 
-  // Circle packing layout — iterative placement
-  const W = 600, H = 500;
-  const maxMs = top20[0].ms;
-  const MIN_R = 18, MAX_R = 110;
-  const bubbles = top20.map((a, i) => {
-    const r = MIN_R + (MAX_R - MIN_R) * Math.sqrt(a.ms / maxMs);
-    return { ...a, r, x: W / 2, y: H / 2, i };
+  // Canvas
+  const W = 640, H = 620;
+  const MIN_R = 16, MAX_R = 95;
+  const maxHours = top20[0].hours;
+
+  // Bubbles with radii proportional to sqrt(hours)
+  const bubbles = top20.map((a, i) => ({
+    ...a, i,
+    r: Math.max(MIN_R, MAX_R * Math.sqrt(a.hours / maxHours)),
+    vx: 0, vy: 0,
+  }));
+
+  // Seed positions using golden-angle spiral so bubbles start spread out
+  const PHI = 2.399963;
+  bubbles.forEach((b, i) => {
+    const rad = i === 0 ? 0 : Math.min(50 + i * 20, Math.min(W, H) / 2 - b.r - 4);
+    b.x = W / 2 + Math.cos(i * PHI) * rad;
+    b.y = H / 2 + Math.sin(i * PHI) * rad;
   });
 
-  // Simple physics-based packing: place bubbles one at a time
-  const placed = [];
-  for (const b of bubbles) {
-    if (placed.length === 0) {
-      b.x = W / 2; b.y = H / 2;
-    } else {
-      // Try angles around the centroid of already placed bubbles
-      let bestX = W / 2, bestY = H / 2, bestScore = Infinity;
-      const cx = placed.reduce((s, p) => s + p.x, 0) / placed.length;
-      const cy = placed.reduce((s, p) => s + p.y, 0) / placed.length;
-      const nAngles = 48, nRadii = 12;
-      outer: for (let ri = 0; ri < nRadii; ri++) {
-        for (let ai = 0; ai < nAngles; ai++) {
-          const angle = (ai / nAngles) * Math.PI * 2;
-          const dist = b.r * 2 + ri * b.r * 0.6;
-          const tx = cx + Math.cos(angle) * dist;
-          const ty = cy + Math.sin(angle) * dist;
-          // Must be within canvas bounds
-          if (tx - b.r < 0 || tx + b.r > W || ty - b.r < 0 || ty + b.r > H) continue;
-          // Must not overlap any placed bubble
-          let overlaps = false;
-          for (const p of placed) {
-            const dx = tx - p.x, dy = ty - p.y;
-            if (Math.sqrt(dx * dx + dy * dy) < b.r + p.r + 2) { overlaps = true; break; }
-          }
-          if (!overlaps) {
-            const score = Math.sqrt((tx - cx) ** 2 + (ty - cy) ** 2);
-            if (score < bestScore) { bestScore = score; bestX = tx; bestY = ty; }
-            if (ri === 0) break outer; // take first tight fit
-          }
+  // Force simulation — 300 iterations, cooling alpha
+  for (let iter = 0; iter < 300; iter++) {
+    const alpha = Math.pow(1 - iter / 300, 1.5);
+
+    // Separation: push overlapping pairs apart
+    for (let i = 0; i < bubbles.length; i++) {
+      for (let j = i + 1; j < bubbles.length; j++) {
+        const a = bubbles[i], b = bubbles[j];
+        const dx = b.x - a.x || 0.01;
+        const dy = b.y - a.y || 0.01;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const minDist = a.r + b.r + 3;
+        if (dist < minDist) {
+          const push = ((minDist - dist) / dist) * 0.48;
+          a.vx -= dx * push; a.vy -= dy * push;
+          b.vx += dx * push; b.vy += dy * push;
         }
       }
-      b.x = bestX; b.y = bestY;
     }
-    placed.push(b);
+
+    // Center gravity — decays with alpha
+    for (const b of bubbles) {
+      b.vx += (W / 2 - b.x) * 0.025 * alpha;
+      b.vy += (H / 2 - b.y) * 0.025 * alpha;
+    }
+
+    // Integrate + dampen + clamp
+    for (const b of bubbles) {
+      b.x = Math.max(b.r + 2, Math.min(W - b.r - 2, b.x + b.vx));
+      b.y = Math.max(b.r + 2, Math.min(H - b.r - 2, b.y + b.vy));
+      b.vx *= 0.5; b.vy *= 0.5;
+    }
   }
 
-  // Normalize to fit snugly in canvas
-  const minX = Math.min(...bubbles.map(b => b.x - b.r));
-  const maxX = Math.max(...bubbles.map(b => b.x + b.r));
-  const minY = Math.min(...bubbles.map(b => b.y - b.r));
-  const maxY = Math.max(...bubbles.map(b => b.y + b.r));
-  const scaleX = (W - 8) / (maxX - minX || 1);
-  const scaleY = (H - 8) / (maxY - minY || 1);
-  const scale = Math.min(scaleX, scaleY, 1);
-  const offX = (W - (maxX - minX) * scale) / 2 - minX * scale;
-  const offY = (H - (maxY - minY) * scale) / 2 - minY * scale;
-  for (const b of bubbles) { b.x = b.x * scale + offX; b.y = b.y * scale + offY; b.r = b.r * scale; }
+  // Inject CSS animation once
+  if (!document.getElementById('mb-anim-style')) {
+    const s = document.createElement('style');
+    s.id = 'mb-anim-style';
+    s.textContent = '@keyframes mbGrow{from{transform:scale(0)}to{transform:scale(1)}}';
+    document.head.appendChild(s);
+  }
 
-  // Build SVG bubbles
-  let circles = '';
+  // Build SVG elements
+  let svgContent = '';
   for (const b of bubbles) {
-    const isTop = b.i === 0;
-    // Color: top bubble bright accent2, others progressively muted by rank
-    const fade = 1 - (b.i / (top20.length - 1 || 1)) * 0.65;
-    const g = Math.round(185 + (210 - 185) * (isTop ? 1 : 0) + (isTop ? 0 : -30 * (1 - fade)));
-    // green channel: top = 210 (#1ed760 green), rest fade from ~185 down
-    const baseG = isTop ? 215 : Math.round(120 + 95 * fade);
-    const fill = isTop ? '#1ed760' : `rgb(${Math.round(20 + 10 * fade)},${baseG},${Math.round(60 + 30 * fade)})`;
-    const textCol = '#ffffff';
-    const labelFontSize = Math.max(8, Math.min(13, b.r * 0.38));
-    const showLabel = b.r >= 28;
-    const tipId = `mb-tip-${b.i}`;
-    circles += `<circle cx="${b.x.toFixed(1)}" cy="${b.y.toFixed(1)}" r="${b.r.toFixed(1)}" fill="${fill}" opacity="0.92" class="mb-bubble" data-tip="${escHtml(b.name)} · ${b.hours}h · ${Math.round(b.pct*100)}% of music"/>`;
-    if (showLabel) {
-      // Wrap long names: split at space nearest the middle
-      const name = b.name;
-      const mid = Math.floor(name.length / 2);
-      const spaceIdx = name.indexOf(' ', mid - 3);
-      const lines2 = spaceIdx > 0 && name.length > 14 ? [name.slice(0, spaceIdx), name.slice(spaceIdx + 1)] : [name];
-      const lineH = labelFontSize * 1.2;
-      const startY = b.y - (lines2.length - 1) * lineH / 2;
+    const opacity = b.i === 0 ? 1 : b.i < 5 ? 0.70 : 0.40;
+    const fill    = b.i === 0 ? '#1ed760' : '#1db954';
+    const delay   = b.i * 28;
+    const tip     = `${b.name} — ${b.hours} hours (${Math.round(b.pct * 100)}% of your music listening)`;
+
+    // <g> wrapper so transform-origin is the bubble centre
+    svgContent += `<g transform="translate(${b.x.toFixed(1)},${b.y.toFixed(1)})" style="animation:mbGrow 0.6s ease-out ${delay}ms both">`;
+    svgContent += `<circle cx="0" cy="0" r="${b.r.toFixed(1)}" fill="${fill}" fill-opacity="${opacity}" class="mb-bubble" data-name="${escHtml(b.name)}" data-tip="${escHtml(tip)}" style="cursor:pointer"/>`;
+
+    // Label inside bubble if radius ≥ 40
+    if (b.r >= 40) {
+      const fs = Math.max(9, Math.min(13, b.r * 0.28));
+      const words = b.name.split(' ');
+      let lines2;
+      if (words.length < 2 || b.name.length <= 11) {
+        lines2 = [b.name];
+      } else {
+        const mid = Math.ceil(words.length / 2);
+        lines2 = [words.slice(0, mid).join(' '), words.slice(mid).join(' ')];
+      }
+      const lineH = fs * 1.3;
       lines2.forEach((ln, li) => {
-        circles += `<text x="${b.x.toFixed(1)}" y="${(startY + li * lineH).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-family="Space Grotesk,sans-serif" font-size="${labelFontSize}" font-weight="600" fill="${textCol}" pointer-events="none" style="user-select:none">${escHtml(ln)}</text>`;
+        const ty = (li - (lines2.length - 1) / 2) * lineH;
+        svgContent += `<text x="0" y="${ty.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-family="Space Grotesk,sans-serif" font-size="${fs}" font-weight="600" fill="#fff" pointer-events="none" style="user-select:none">${escHtml(ln)}</text>`;
       });
     }
+    svgContent += `</g>`;
   }
 
-  // Tooltip div (positioned absolutely over SVG)
   const svgHtml = `
   <div style="position:relative;width:100%;max-width:${W}px;margin:0 auto">
-    <svg id="music-bubble-svg" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="Music bubble chart">${circles}</svg>
-    <div id="mb-tooltip" style="position:absolute;pointer-events:none;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:0.78rem;color:var(--text);line-height:1.5;white-space:nowrap;opacity:0;transition:opacity 0.15s ease;z-index:10"></div>
+    <svg id="music-bubble-svg" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="Music artist bubble chart">${svgContent}</svg>
+    <div id="mb-tooltip" style="position:absolute;pointer-events:none;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:0.78rem;color:var(--text);line-height:1.5;white-space:normal;max-width:260px;opacity:0;transition:opacity 0.12s ease;z-index:10"></div>
   </div>`;
 
+  // Insight lines
+  const top3Pct = Math.round(top20.slice(0, 3).reduce((s, a) => s + a.pct, 0) * 100);
+  const line1 = top3Pct > 50
+    ? `Your top 3 artists account for <strong style="color:var(--accent2)">${top3Pct}%</strong> of your music listening. You know what you like.`
+    : top3Pct >= 30
+    ? `Your top 3 artists account for <strong style="color:var(--accent2)">${top3Pct}%</strong> of your music listening. Loyal but not obsessive.`
+    : `Your top 3 artists account for only <strong style="color:var(--accent2)">${top3Pct}%</strong> of your music listening. You spread yourself around.`;
+
+  const over10h = artistList.filter(a => a.hours >= 10).length;
+  const line2 = `You have <strong style="color:var(--accent2)">${over10h}</strong> artist${over10h !== 1 ? 's' : ''} you've given more than 10 hours to. You actually know their catalogues.`;
+
+  const topA = top20[0];
+  const secA = top20[1];
+  const gap  = secA ? Math.round((topA.hours - secA.hours) * 10) / 10 : null;
+  const line3 = !secA
+    ? `<strong>${escHtml(topA.name)}</strong> is the clear favourite — ${topA.hours} hours of your life.`
+    : gap < 5
+    ? `<strong>${escHtml(topA.name)}</strong> and <strong>${escHtml(secA.name)}</strong> are almost neck and neck — ${gap} hours apart.`
+    : `<strong>${escHtml(topA.name)}</strong> leads by <strong style="color:var(--accent2)">${gap} hours</strong> over your second most listened artist, ${escHtml(secA.name)}.`;
+
   el.innerHTML = `
-    ${heroStatement(`You've listened to <em>${Object.keys(artistMs).length.toLocaleString()} different artists</em>. These are the ones who actually own your ears.`)}
-    <p style="font-size:0.78rem;color:var(--text3);margin:0 0 16px;line-height:1.5">Each bubble is an artist. The bigger the bubble, the more of your life they've soundtracked.</p>
+    ${heroStatement(`You've listened to <em>${artistList.length.toLocaleString()} different artists</em>. These are the ones who own your ears.`)}
+    <p style="font-size:0.78rem;color:var(--text3);margin:0 0 16px;line-height:1.5">Each bubble is an artist. Bigger means more hours of your life they've soundtracked. Hover for details.</p>
     ${svgHtml}
-    <div class="evidence-section" style="margin-top:32px">
+    <div class="evidence-section" style="margin-top:36px">
       <div class="evidence-label">What this says about you</div>
-      <div style="display:flex;flex-direction:column;gap:12px;margin-top:4px">
-        <div style="font-size:0.88rem;color:var(--text);line-height:1.6">Your top 3 artists make up <strong style="color:var(--accent2)">${top3Pct}%</strong> of your total music listening.${top3Note}</div>
-        <div style="font-size:0.88rem;color:var(--text);line-height:1.6">You have <strong style="color:var(--accent2)">${over10h}</strong> artist${over10h !== 1 ? 's' : ''} you've listened to for over 10 hours. You actually know their catalogues.</div>
-        <div style="font-size:0.88rem;color:var(--text);line-height:1.6">Your most listened artist is <strong style="color:var(--accent2)">${escHtml(topArtist.name)}</strong>. They've had <strong>${topArtist.hours} hours</strong> of your life.</div>
+      <div style="display:flex;flex-direction:column;gap:14px;margin-top:10px">
+        <div style="font-size:0.88rem;color:var(--text);line-height:1.6">${line1}</div>
+        <div style="font-size:0.88rem;color:var(--text);line-height:1.6">${line2}</div>
+        <div style="font-size:0.88rem;color:var(--text);line-height:1.6">${line3}</div>
       </div>
     </div>`;
 
-  // Wire up tooltip
+  // Tooltip wiring — follows cursor within container
   const svg = document.getElementById('music-bubble-svg');
-  const tip = document.getElementById('mb-tooltip');
-  if (svg && tip) {
-    svg.querySelectorAll('.mb-bubble').forEach(circle => {
-      circle.addEventListener('mouseenter', e => {
-        tip.textContent = circle.dataset.tip;
-        tip.style.opacity = '1';
-      });
-      circle.addEventListener('mousemove', e => {
-        const rect = svg.getBoundingClientRect();
-        const scaleRatio = rect.width / W;
-        const cx = parseFloat(circle.getAttribute('cx')) * scaleRatio;
-        const cy = parseFloat(circle.getAttribute('cy')) * scaleRatio;
-        const r  = parseFloat(circle.getAttribute('r'))  * scaleRatio;
-        let tx = cx + r + 8;
-        let ty = cy - 16;
-        // Keep within container
-        const tipW = tip.offsetWidth || 160;
-        if (tx + tipW > rect.width) tx = cx - r - tipW - 8;
-        if (ty < 0) ty = 0;
-        tip.style.left = tx + 'px';
-        tip.style.top  = ty + 'px';
-      });
-      circle.addEventListener('mouseleave', () => { tip.style.opacity = '0'; });
+  const tooltip = document.getElementById('mb-tooltip');
+  if (!svg || !tooltip) return;
+  const container = svg.parentElement;
+  svg.querySelectorAll('.mb-bubble').forEach(circle => {
+    circle.addEventListener('mouseenter', () => {
+      tooltip.textContent = circle.dataset.tip;
+      tooltip.style.opacity = '1';
     });
-  }
+    circle.addEventListener('mousemove', e => {
+      const rect = container.getBoundingClientRect();
+      let tx = e.clientX - rect.left + 14;
+      let ty = e.clientY - rect.top - 44;
+      if (ty < 4) ty = e.clientY - rect.top + 14;
+      if (tx + 270 > rect.width) tx = e.clientX - rect.left - 276;
+      tooltip.style.left = tx + 'px';
+      tooltip.style.top  = ty + 'px';
+    });
+    circle.addEventListener('mouseleave', () => { tooltip.style.opacity = '0'; });
+  });
 }
 
 /* ═══════════════════════════════════════════
