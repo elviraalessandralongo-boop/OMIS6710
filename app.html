@@ -3453,6 +3453,96 @@ function renderBrain() {
   const { grid: mGrid, max: mMax } = buildGrid(State.music);
   const { grid: pGrid, max: pMax } = buildGrid(State.podcasts);
 
+  // ── Your Weekly Pattern: compute weekday vs weekend breakdown per artist/show ──
+  function buildWeeklyPattern(records, nameKey) {
+    const WKDAY_DOWS = new Set([0,1,2,3,4]); // Mon=0 … Fri=4
+    const WKEND_DOWS = new Set([5,6]);        // Sat=5, Sun=6
+    let wdPlays = 0, wePlays = 0, wdMs = 0, weMs = 0;
+    const wdByName = {}, weByName = {};
+    for (const r of records) {
+      const d = tsToLocal(r.ts);
+      const dow = (d.getDay() + 6) % 7;
+      const name = r[nameKey];
+      const ms = r.ms_played || 0;
+      if (WKDAY_DOWS.has(dow)) {
+        wdPlays++;
+        if (name && ms > 0) { wdMs += ms; wdByName[name] = (wdByName[name] || 0) + ms; }
+      } else {
+        wePlays++;
+        if (name && ms > 0) { weMs += ms; weByName[name] = (weByName[name] || 0) + ms; }
+      }
+    }
+    if (wdPlays < 30 || wePlays < 30) return null;
+    const top3wd = Object.entries(wdByName).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n])=>n);
+    const top3we = Object.entries(weByName).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n])=>n);
+    if (!top3wd.length || !top3we.length) return null;
+    // Top 5 overall for share analysis
+    const overall = {};
+    for (const [n, ms] of Object.entries(wdByName)) overall[n] = (overall[n]||0) + ms;
+    for (const [n, ms] of Object.entries(weByName)) overall[n] = (overall[n]||0) + ms;
+    const top5 = Object.entries(overall).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([n])=>n);
+    // Find weekend artist (biggest positive weekend share – weekday share) and vice versa
+    let weekendArtist = null, weekdayArtist = null;
+    let maxWeDiff = -Infinity, maxWdDiff = -Infinity;
+    for (const name of top5) {
+      const wdShare = wdMs > 0 ? (wdByName[name] || 0) / wdMs : 0;
+      const weShare = weMs > 0 ? (weByName[name] || 0) / weMs : 0;
+      const weDiff = weShare - wdShare, wdDiff = wdShare - weShare;
+      if (weDiff > maxWeDiff) { maxWeDiff = weDiff; weekendArtist = { name, weShare, wdShare }; }
+      if (wdDiff > maxWdDiff) { maxWdDiff = wdDiff; weekdayArtist = { name, weShare, wdShare }; }
+    }
+    return { top3wd, top3we, weekendArtist, weekdayArtist, wdMs, weMs };
+  }
+
+  // ── Your Weekly Pattern: render HTML for one mode (music or podcast) ──
+  function renderWeeklyPattern(data, isPodcast) {
+    if (!data) {
+      return `<div style="font-size:0.85rem;color:var(--text3);font-style:italic;text-align:center;padding:24px 0">Not enough data to compare your weekday and weekend listening yet.</div>`;
+    }
+    const { top3wd, top3we, weekendArtist, weekdayArtist, wdMs, weMs } = data;
+    // Determine verdict — check conditions in priority order
+    let verdict = '';
+    if (isPodcast) {
+      const wdPerDay = wdMs / 5, wePerDay = weMs / 2;
+      if (wdPerDay > 0 && wePerDay / wdPerDay > 1.3) {
+        const jumpPct = Math.round((wePerDay / wdPerDay - 1) * 100);
+        verdict = `Weekends are when you actually pay attention — podcast listening jumps <strong>${jumpPct}%</strong> on Saturdays and Sundays.`;
+      }
+    }
+    if (!verdict && weekendArtist && weekendArtist.wdShare > 0) {
+      const pctMore = Math.round((weekendArtist.weShare / weekendArtist.wdShare - 1) * 100);
+      if (pctMore > 40) {
+        verdict = `On weekends you're <strong>${pctMore}%</strong> more likely to be listening to <strong>${escHtml(weekendArtist.name)}</strong>. That's not a coincidence.`;
+      }
+    }
+    if (!verdict) {
+      verdict = top3wd[0] === top3we[0]
+        ? `Your taste doesn't change much between work and play. Consistent.`
+        : `Weekday you and weekend you have different taste. You switch modes.`;
+    }
+    const rowStyle = `font-size:0.88rem;color:var(--text2);padding:6px 0;border-bottom:1px solid var(--border)`;
+    function makeList(items, insightLine) {
+      return items.map((name, i) =>
+        `<div style="${rowStyle}${i === items.length-1 ? ';border-bottom:none' : ''}"><span style="color:var(--text3);font-size:0.75rem;margin-right:8px">${i+1}</span>${escHtml(name)}</div>`
+      ).join('') + `<div style="font-size:0.78rem;color:var(--text3);font-style:italic;margin-top:10px">${insightLine}</div>`;
+    }
+    return `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px">
+          <div style="font-size:0.68rem;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);margin-bottom:12px">Monday — Friday</div>
+          ${makeList(top3wd, `On weekdays it's mostly ${escHtml(top3wd[0])}.`)}
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px">
+          <div style="font-size:0.68rem;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);margin-bottom:12px">Saturday — Sunday</div>
+          ${makeList(top3we, `On weekends you shift to ${escHtml(top3we[0])}.`)}
+        </div>
+      </div>
+      <div style="font-size:0.9rem;color:var(--text2);line-height:1.6;font-style:italic">${verdict}</div>`;
+  }
+
+  const mWeeklyPattern = State.music.length    ? buildWeeklyPattern(State.music,    'master_metadata_album_artist_name') : null;
+  const pWeeklyPattern = State.podcasts.length ? buildWeeklyPattern(State.podcasts, 'episode_show_name')                  : null;
+
   function renderHeatmap(grid, max, color, type) {
     const DAY_NAMES = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
     const DAY_SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
@@ -3645,7 +3735,10 @@ function renderBrain() {
       <div style="font-size:0.78rem;color:var(--text3);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em">Pattern Insight</div>
       <div style="font-size:0.92rem;color:var(--text2);line-height:1.6">${insightParts.join(' ')}</div>
     </div>
-    ${toolVerdict(brainVerdict)}`;
+    ${toolVerdict(brainVerdict)}
+    <div class="forgotten-section-header" style="margin-top:36px">Your Weekly Pattern</div>
+    <div id="brain-weekly-music">${renderWeeklyPattern(mWeeklyPattern, false)}</div>
+    <div id="brain-weekly-podcast" style="display:none">${renderWeeklyPattern(pWeeklyPattern, true)}</div>`;
 
   // JS tooltip for heatmap cells — follows cursor, never overflows
   const existingTip = document.getElementById('brain-heatmap-tip');
@@ -3675,6 +3768,11 @@ function switchBrainMode(mode) {
   document.getElementById('brain-pod-map').style.display  = mode === 'podcast' ? '' : 'none';
   document.getElementById('brain-music-btn').classList.toggle('active', mode === 'music');
   document.getElementById('brain-pod-btn').classList.toggle('active', mode === 'podcast');
+  // Your Weekly Pattern toggle — mirrors the heatmap toggle
+  const wm = document.getElementById('brain-weekly-music');
+  const wp = document.getElementById('brain-weekly-podcast');
+  if (wm) wm.style.display = mode === 'music'   ? '' : 'none';
+  if (wp) wp.style.display = mode === 'podcast' ? '' : 'none';
 }
 
 /* ═══════════════════════════════════════════
