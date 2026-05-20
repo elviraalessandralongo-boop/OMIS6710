@@ -1612,6 +1612,22 @@ function animateDonuts(container) {
   }, 50);
 }
 
+function animateLandingVisuals(container) {
+  setTimeout(() => {
+    // Donut arcs — set final stroke-dasharray via CSS transition
+    container.querySelectorAll('.landing-donut-arc').forEach(circle => {
+      const seg  = parseFloat(circle.dataset.finalSeg);
+      const circ = parseFloat(circle.dataset.circ);
+      circle.style.transition = 'stroke-dasharray 700ms ease';
+      circle.setAttribute('stroke-dasharray', `${seg} ${(circ - seg).toFixed(2)}`);
+    });
+    // Year bars — trigger CSS width transition
+    container.querySelectorAll('.landing-year-bar').forEach(bar => {
+      bar.style.width = bar.dataset.finalWidth;
+    });
+  }, 80);
+}
+
 function animateRadar(container) {
   const polygon = container.querySelector('#radar-polygon');
   if (!polygon) return;
@@ -4678,6 +4694,8 @@ function renderHome() {
   const allTs   = [...State.music, ...State.podcasts].map(r => r.ts).sort();
   const yr0 = allTs[0]?.slice(0,4), yr1 = allTs[allTs.length-1]?.slice(0,4);
   const range = yr0 && yr1 && yr0 !== yr1 ? `${yr0}–${yr1}` : yr0 || '';
+  const musicMs = State.music.reduce((s,r) => s+(r.ms_played||0), 0);
+  const podMs   = State.podcasts.reduce((s,r) => s+(r.ms_played||0), 0);
 
   // ── Top track ──
   let topTrack = null, topTrackPlays = 0;
@@ -4987,6 +5005,83 @@ function renderHome() {
     }
   }
 
+  // ── Visual 1: Music vs Podcast Donut ──
+  let landingDonutHtml = '';
+  if (totalMs > 0) {
+    const bothMs = musicMs + podMs;
+    const mPct = bothMs > 0 ? musicMs / bothMs : 0;
+    const pPct = bothMs > 0 ? podMs  / bothMs : 0;
+    const mPctR = Math.round(mPct * 100);
+    const pPctR = 100 - mPctR;
+    const R = 44, CX = 60, CY = 60, SW = 14;
+    const C = (2 * Math.PI * R).toFixed(2);
+    const mLen = (parseFloat(C) * mPct).toFixed(2);
+    const pLen = (parseFloat(C) * pPct).toFixed(2);
+    const pRotate = (-90 + mPct * 360).toFixed(2);
+    const dominant = mPct >= pPct ? 'Music' : 'Podcasts';
+    const dominantPct = mPct >= pPct ? mPctR : pPctR;
+    const mLegend = mPctR > 0 ? `<div style="display:flex;align-items:center;gap:7px"><div style="width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0"></div><span style="font-size:0.75rem;color:var(--text2)">Music <strong>${mPctR}%</strong></span></div>` : '';
+    const pLegend = pPctR > 0 ? `<div style="display:flex;align-items:center;gap:7px"><div style="width:8px;height:8px;border-radius:50%;background:rgba(29,185,84,0.35);flex-shrink:0"></div><span style="font-size:0.75rem;color:var(--text3)">Podcasts <strong>${pPctR}%</strong></span></div>` : '';
+    landingDonutHtml = `
+      <div style="display:flex;align-items:center;gap:16px;flex-shrink:0">
+        <div style="position:relative;flex-shrink:0">
+          <svg width="120" height="120" viewBox="0 0 120 120" style="display:block">
+            <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="var(--border)" stroke-width="${SW}"/>
+            <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="var(--accent)" stroke-width="${SW}"
+                    stroke-dasharray="0 ${C}" stroke-linecap="butt"
+                    transform="rotate(-90 ${CX} ${CY})"
+                    class="landing-donut-arc" data-final-seg="${mLen}" data-circ="${C}"/>
+            <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="rgba(29,185,84,0.35)" stroke-width="${SW}"
+                    stroke-dasharray="0 ${C}" stroke-linecap="butt"
+                    transform="rotate(${pRotate} ${CX} ${CY})"
+                    class="landing-donut-arc" data-final-seg="${pLen}" data-circ="${C}"/>
+          </svg>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;line-height:1.2">
+            <div style="font-size:0.62rem;font-weight:700;color:var(--text);white-space:nowrap">${dominant}</div>
+            <div style="font-size:0.9rem;font-weight:700;color:var(--accent2)">${dominantPct}%</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">${mLegend}${pLegend}</div>
+      </div>`;
+  }
+
+  // ── Visual 2: Yearly timeline bars ──
+  let landingTimelineHtml = '';
+  {
+    const yrMs = {};
+    for (const r of [...State.music, ...State.podcasts]) {
+      if (!r.ts) continue;
+      const yr = r.ts.slice(0,4);
+      yrMs[yr] = (yrMs[yr] || 0) + (r.ms_played || 0);
+    }
+    const yrKeys = Object.keys(yrMs).sort();
+    if (yrKeys.length >= 2) {
+      const maxYrMs = Math.max(...Object.values(yrMs));
+      const peakYr  = Object.entries(yrMs).sort((a,b) => b[1]-a[1])[0][0];
+      const latestYr = yrKeys[yrKeys.length - 1];
+      const MAX_W = 80, MIN_W = 5;
+      const bars = yrKeys.map((yr, i) => {
+        const pct  = yrMs[yr] / maxYrMs;
+        const barW = Math.max(MIN_W, Math.round(pct * MAX_W));
+        const isLatest = yr === latestYr;
+        const isPeak   = yr === peakYr;
+        const color = isLatest ? 'var(--accent2)' : 'rgba(29,185,84,0.65)';
+        return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+          <div style="font-size:0.55rem;color:var(--accent2);height:14px;display:flex;align-items:center;white-space:nowrap">${isPeak ? 'Peak year' : ''}</div>
+          <div class="landing-year-bar"
+               style="width:0;height:32px;background:${color};border-radius:2px;transition:width 600ms ease ${i*60}ms"
+               data-final-width="${barW}px"></div>
+          <div style="font-size:0.58rem;color:var(--text3);white-space:nowrap">${yr}</div>
+        </div>`;
+      }).join('');
+      landingTimelineHtml = `<div style="overflow-x:auto;flex:1;min-width:0"><div style="display:flex;gap:4px;align-items:flex-start;padding-bottom:2px;min-width:max-content">${bars}</div></div>`;
+    }
+  }
+
+  const landingVisualsHtml = (landingDonutHtml || landingTimelineHtml)
+    ? `<div style="display:flex;gap:24px;align-items:center;margin-bottom:32px;flex-wrap:wrap" id="landing-visuals">${landingDonutHtml}${landingTimelineHtml ? `<div style="flex:1;min-width:160px">${landingTimelineHtml}</div>` : ''}</div>`
+    : '';
+
   // ── Build HTML (hidden initially, revealed after animation) ──
   const statsHtml = statCards.map(c => `
     <div class="home-stat-card">
@@ -5078,7 +5173,8 @@ function renderHome() {
         You've given <span style="color:var(--accent2)">${fmtNum(totalH)} hours</span> of your life to music and podcasts${yr0 ? ` since ${yr0}` : ''}.<br>
         <span style="font-size:1.45rem;font-weight:300;font-style:italic;color:var(--text2)">Here's what that actually says about you.</span>
       </div>
-      <div style="font-size:0.82rem;color:var(--text3);margin-bottom:44px;font-style:italic">Spotify Wrapped tells you what you listened to. The Honest Listener tells you what it actually means.</div>
+      <div style="font-size:0.82rem;color:var(--text3);margin-bottom:28px;font-style:italic">Spotify Wrapped tells you what you listened to. The Honest Listener tells you what it actually means.</div>
+      ${landingVisualsHtml}
       ${biggerPictureHtml}
       ${startHereHtml}
       <div style="margin-top:40px;margin-bottom:8px">
@@ -5107,9 +5203,11 @@ function renderHome() {
     el.innerHTML = '';
     playHomeReveal(fragments, () => {
       el.innerHTML = contentHtml;
+      animateLandingVisuals(el);
     });
   } else {
     el.innerHTML = contentHtml;
+    animateLandingVisuals(el);
   }
 }
 
