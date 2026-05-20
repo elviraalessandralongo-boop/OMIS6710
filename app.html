@@ -1922,6 +1922,7 @@ function renderGuiltQueue(windowIdx = 1) {
     </div>
     <div class="evidence-section">
       <div class="evidence-label">The evidence</div>
+      <p style="font-size:0.78rem;color:var(--text3);margin:0 0 14px;line-height:1.5">Ranked by how intentionally you chose it and how little of it you finished. The higher up the list, the less excuse you have.</p>
       <ul class="result-list">`;
 
   results.forEach((ep, i) => {
@@ -2133,6 +2134,7 @@ function renderHooked() {
     ${gatewayHtml}
     <div class="evidence-section">
       <div class="evidence-label">The evidence</div>
+      <p style="font-size:0.78rem;color:var(--text3);margin:0 0 14px;line-height:1.5">Shows content that autoplayed and you finished anyway — ranked by completion rate.</p>
       <ul class="result-list">`;
 
   results.forEach((ep, i) => {
@@ -2339,7 +2341,8 @@ function renderBinge(windowIdx = 3) {
     <div class="toggle-row">${toggleHtml}</div>
     ${heroStatement(`Your longest rabbit hole was <em>${longestSessionH} hours on a ${escHtml(longestSessionDay)}</em>. You listened to <em>${longestSessionEps} episodes</em> back to back — and then, eventually, you surfaced.`)}
     <div class="evidence-section">
-      <div class="evidence-label">The evidence</div>`;
+      <div class="evidence-label">The evidence</div>
+      <p style="font-size:0.78rem;color:var(--text3);margin:0 0 14px;line-height:1.5">Each row is a session where you listened to 3 or more episodes back to back. Sorted by longest first.</p>`;
 
   html += `<div id="binge-session-list">`;
   sorted.forEach((session, i) => {
@@ -2740,6 +2743,7 @@ function renderPodBubble() {
 
   el.innerHTML = `
     ${heroStatement(bubbleHero)}
+    <p style="font-size:0.78rem;color:var(--text3);margin:0 0 18px;line-height:1.5">Each bubble represents a topic category. Bigger bubble means more of your listening time goes there.</p>
     <div class="evidence-section" style="display:grid;grid-template-columns:160px 1fr;gap:32px;align-items:start">
       <div style="display:flex;justify-content:center">${donutSvg}</div>
       <ul style="padding:0;margin:0">${catRows}</ul>
@@ -2826,6 +2830,7 @@ function renderOneHit() {
     ${heroStatement(`You have <em>${results.length} artists</em> you've played dozens of times — but only ever one song. You're not a fan. <em>You're obsessed with a moment.</em>`)}
     <div class="evidence-section">
       <div class="evidence-label">The evidence</div>
+      <p style="font-size:0.78rem;color:var(--text3);margin:0 0 14px;line-height:1.5">Artists where almost all your plays are one single song — ranked by how concentrated your listening is.</p>
       <ul class="result-list">`;
 
   results.forEach((r, i) => {
@@ -3141,6 +3146,7 @@ function renderPeakObsession() {
     ${heroStatement(`Your most intense obsession was <em>"${escHtml(topByDrop.track)}"</em> by ${escHtml(topByDrop.artist)} — <em>${topByDrop.peakCount} plays in a single month</em> in ${peakDateStr}. You haven't touched it in <em>${monthsSincePeak} months</em>.`)}
     <div class="evidence-section">
       <div class="evidence-label">The evidence — sorted by biggest drop from peak</div>
+      <p style="font-size:0.78rem;color:var(--text3);margin:0 0 14px;line-height:1.5">Each bar shows your play count per week. The tallest bar is your peak — when you were most obsessed.</p>
       <ul class="result-list">`;
 
   results.forEach((r, i) => {
@@ -3306,7 +3312,8 @@ function renderForgotten(windowIdx = 0) {
     <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
       <button onclick="downloadForgottenCSV()" style="padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:'Space Grotesk',sans-serif;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent2)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">↓ Export CSV</button>
     </div>
-    <div class="evidence-section">`;
+    <div class="evidence-section">
+    <p style="font-size:0.78rem;color:var(--text3);margin:0 0 14px;line-height:1.5">Songs you used to play regularly but haven't touched in a while. Sorted by how long they've been dormant.</p>`;
 
   if (worthRevisiting.length) {
     html += `<div class="forgotten-section-header">Worth Revisiting — ${worthRevisiting.length} song${worthRevisiting.length !== 1 ? 's' : ''} with 20+ plays</div>
@@ -3535,6 +3542,7 @@ function renderBrain() {
       <button class="toggle-btn active" id="brain-music-btn" onclick="switchBrainMode('music')">🎵 Music</button>
       <button class="toggle-btn" id="brain-pod-btn" onclick="switchBrainMode('podcast')">🎙️ Podcasts</button>
     </div>
+    <p style="font-size:0.78rem;color:var(--text3);margin:0 0 16px;line-height:1.5">Each cell shows how often you listen during that hour on that day. Darker means more listening.</p>
     <div id="brain-music-map">
       ${State.music.length ? renderHeatmap(mGrid, mMax, 'green') : emptyState('🎵','No music data','')}
       ${mCallout ? `<div style="margin-top:10px;font-size:0.78rem;color:var(--text3)"><strong style="color:var(--accent2)">Peak moments:</strong> ${mCallout}</div>` : ''}
