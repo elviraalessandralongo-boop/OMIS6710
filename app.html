@@ -1958,11 +1958,30 @@ function renderGuiltQueue(windowIdx = 1) {
       ? `<div style="display:inline-block;margin-top:8px;padding:5px 10px;background:rgba(224,160,80,0.12);border:1px solid rgba(224,160,80,0.3);border-radius:6px;font-size:0.72rem;color:var(--amber);line-height:1.4">You were <strong>${minsLeft} minute${minsLeft !== 1 ? 's' : ''}</strong> from the end. You stopped with ${minsLeft} minutes left. Why?</div>`
       : '';
 
+    // Completion bar — full-width, color-coded, staggered animation via data-width + inline transition
+    const barFill = pct < 20  ? 'rgba(224,160,80,0.6)'   // amber: worst offenders
+                  : pct > 80  ? 'rgba(30,215,96,0.85)'    // bright green: nearly complete
+                  :             'rgba(29,185,84,0.6)';     // green: normal
+    const soCloseBarLabel = pct > 80
+      ? `<span style="font-size:0.68rem;font-weight:600;color:var(--accent2);margin-right:auto">So close</span>`
+      : '';
+    const completionBar = `
+      <div style="margin-top:8px;margin-bottom:2px">
+        <div style="width:100%;height:5px;background:var(--border);border-radius:3px;overflow:hidden">
+          <div data-width="${pct}%" style="height:100%;width:0;background:${barFill};border-radius:3px;transition:width 500ms ease ${i * 80}ms"></div>
+        </div>
+        <div style="display:flex;align-items:center;margin-top:3px">
+          ${soCloseBarLabel}
+          <span style="font-size:0.68rem;color:var(--text3);margin-left:auto">${pct}%</span>
+        </div>
+      </div>`;
+
     const hiddenCls = i >= 5 ? ' class="show-more-item"' : '';
     html += `<li${hiddenCls}>
       <div class="result-num">${i+1}</div>
       <div class="result-body">
         <div class="result-title">${escHtml(ep.show)}</div>
+        ${completionBar}
         <div style="display:flex;align-items:center;gap:12px;margin-top:4px">
           <span style="font-size:0.82rem;color:var(--text2)">~${pct}% complete</span>
           <div class="bar-wrap" style="flex:1;max-width:180px;margin:0">
