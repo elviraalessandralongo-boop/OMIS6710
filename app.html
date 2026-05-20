@@ -489,22 +489,8 @@ body {
   cursor: default;
   position: relative;
 }
-.heatmap-cell:hover::after {
-  content: attr(data-tip);
-  position: absolute;
-  bottom: 110%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--bg4);
-  border: 1px solid var(--border);
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 0.7rem;
-  white-space: nowrap;
-  pointer-events: none;
-  z-index: 100;
-  color: var(--text);
-}
+.heatmap-cell:hover::after { content: none; }
+.heatmap-cell { cursor: default; }
 .heatmap-label { display: flex; align-items: center; color: var(--text3); }
 
 /* ── SPARKLINE ── */
@@ -3366,43 +3352,47 @@ function renderBrain() {
   const { grid: mGrid, max: mMax } = buildGrid(State.music);
   const { grid: pGrid, max: pMax } = buildGrid(State.podcasts);
 
-  function renderHeatmap(grid, max, color) {
-    const hourLabels = hours.map(h => h === 0 ? '12a' : h < 12 ? h+'a' : h === 12 ? '12p' : (h-12)+'p');
+  function renderHeatmap(grid, max, color, type) {
+    const DAY_NAMES = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    const DAY_SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const LABELED   = new Set([0,3,6,9,12,15,18,21]);
+    function hLabel(h) { return h===0?'12a':h<12?h+'a':h===12?'12p':(h-12)+'p'; }
+    function hRange(h) {
+      const f = h===0?'12am':h<12?`${h}am`:h===12?'12pm':`${h-12}pm`;
+      const t = (h+1)===12?'12pm':(h+1)<12?`${h+1}am`:(h+1)===24?'12am':`${h+1-12}pm`;
+      return `${f} — ${t}`;
+    }
+    const typeLabel = type === 'podcast' ? 'podcast plays' : 'music plays';
+
     let html = `<div style="overflow-x:auto;padding-bottom:4px"><div class="heatmap-grid" style="min-width:620px">
       <div></div>
-      ${hourLabels.map(h => `<div class="heatmap-label" style="justify-content:center;font-size:0.58rem">${h}</div>`).join('')}`;
+      ${hours.map(h => LABELED.has(h)
+          ? `<div class="heatmap-label" style="justify-content:center;font-size:0.58rem;color:var(--text3)">${hLabel(h)}</div>`
+          : `<div></div>`
+        ).join('')}`;
     for (let dow = 0; dow < 7; dow++) {
-      html += `<div class="heatmap-label">${days[dow]}</div>`;
+      html += `<div class="heatmap-label" style="font-size:0.65rem;color:var(--text3)">${DAY_SHORT[dow]}</div>`;
       for (let hr = 0; hr < 24; hr++) {
         const val = grid[`${dow}-${hr}`] || 0;
         const intensity = max > 0 ? val / max : 0;
-        // Solid RGB interpolation: bg3(28,28,33) → accent, power curve
         const t = intensity > 0 ? Math.pow(intensity, 0.35) : 0;
         let bg;
         if (color === 'green') {
-          const r = Math.round(28 + t * (30 - 28));
-          const g = Math.round(28 + t * (210 - 28));
-          const b = Math.round(33 + t * (90 - 33));
-          bg = `rgb(${r},${g},${b})`;
+          bg = `rgb(${Math.round(28+t*2)},${Math.round(28+t*182)},${Math.round(33+t*57)})`;
         } else {
-          const r = Math.round(28 + t * (100 - 28));
-          const g = Math.round(28 + t * (160 - 28));
-          const b = Math.round(33 + t * (240 - 33));
-          bg = `rgb(${r},${g},${b})`;
+          bg = `rgb(${Math.round(28+t*72)},${Math.round(28+t*132)},${Math.round(33+t*207)})`;
         }
-        const cellText = val > 0 ? String(val) : '';
-        const textCol = t > 0.55 ? 'rgba(0,0,0,0.65)' : 'rgba(255,255,255,0.35)';
-        html += `<div class="heatmap-cell" style="background:${bg};font-size:6px;color:${textCol};display:flex;align-items:center;justify-content:center;line-height:1;overflow:hidden" data-tip="${days[dow]} ${hourLabels[hr]}: ${val} plays">${cellText}</div>`;
+        const tip = `${DAY_NAMES[dow]}, ${hRange(hr)} · ${val} ${typeLabel}`;
+        html += `<div class="heatmap-cell" style="background:${bg}" data-tip="${tip}"></div>`;
       }
     }
     html += '</div></div>';
-    // Legend
-    const gradFrom = color === 'green' ? 'rgb(28,28,33)' : 'rgb(28,28,33)';
+    const gradFrom = 'rgb(28,28,33)';
     const gradTo   = color === 'green' ? 'rgb(30,210,90)' : 'rgb(100,160,240)';
-    html += `<div style="display:flex;align-items:center;gap:10px;margin-top:10px;font-size:0.68rem;color:var(--text3)">
-      <span>0</span>
-      <div style="flex:1;max-width:160px;height:8px;border-radius:4px;background:linear-gradient(to right,${gradFrom},${gradTo})"></div>
-      <span>peak</span>
+    html += `<div style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:0.68rem;color:var(--text3)">
+      <span>Less</span>
+      <div style="width:120px;height:6px;border-radius:3px;background:linear-gradient(to right,${gradFrom},${gradTo})"></div>
+      <span>More</span>
     </div>`;
     return html;
   }
@@ -3543,11 +3533,11 @@ function renderBrain() {
     </div>
     <p style="font-size:0.78rem;color:var(--text3);margin:0 0 16px;line-height:1.5">Each cell shows how often you listen during that hour on that day. Darker means more listening.</p>
     <div id="brain-music-map">
-      ${State.music.length ? renderHeatmap(mGrid, mMax, 'green') : emptyState('🎵','No music data','')}
+      ${State.music.length ? renderHeatmap(mGrid, mMax, 'green', 'music') : emptyState('🎵','No music data','')}
       ${mCallout ? `<div style="margin-top:10px;font-size:0.78rem;color:var(--text3)"><strong style="color:var(--accent2)">Peak moments:</strong> ${mCallout}</div>` : ''}
     </div>
     <div id="brain-pod-map" style="display:none">
-      ${State.podcasts.length ? renderHeatmap(pGrid, pMax, 'blue') : emptyState('🎙️','No podcast data','')}
+      ${State.podcasts.length ? renderHeatmap(pGrid, pMax, 'blue', 'podcast') : emptyState('🎙️','No podcast data','')}
       ${pCallout ? `<div style="margin-top:10px;font-size:0.78rem;color:var(--text3)"><strong style="color:var(--blue)">Peak moments:</strong> ${pCallout}</div>` : ''}
     </div>
     <div style="margin-top:20px;padding:16px 20px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm)">
@@ -3555,6 +3545,28 @@ function renderBrain() {
       <div style="font-size:0.92rem;color:var(--text2);line-height:1.6">${insightParts.join(' ')}</div>
     </div>
     ${toolVerdict(brainVerdict)}`;
+
+  // JS tooltip for heatmap cells — follows cursor, never overflows
+  const existingTip = document.getElementById('brain-heatmap-tip');
+  if (existingTip) existingTip.remove();
+  const hmTip = document.createElement('div');
+  hmTip.id = 'brain-heatmap-tip';
+  hmTip.style.cssText = 'position:fixed;pointer-events:none;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:0.75rem;color:var(--text);line-height:1.5;white-space:nowrap;opacity:0;transition:opacity 0.1s ease;z-index:9999';
+  document.body.appendChild(hmTip);
+  el.querySelectorAll('.heatmap-cell').forEach(cell => {
+    cell.addEventListener('mouseenter', () => { hmTip.textContent = cell.dataset.tip; hmTip.style.opacity = '1'; });
+    cell.addEventListener('mousemove', e => {
+      const tw = hmTip.offsetWidth || 220;
+      const th = hmTip.offsetHeight || 36;
+      let tx = e.clientX + 14, ty = e.clientY - 42;
+      if (tx + tw > window.innerWidth  - 8) tx = e.clientX - tw - 14;
+      if (ty < 8)                           ty = e.clientY + 14;
+      if (ty + th > window.innerHeight - 8) ty = window.innerHeight - th - 8;
+      hmTip.style.left = tx + 'px';
+      hmTip.style.top  = ty + 'px';
+    });
+    cell.addEventListener('mouseleave', () => { hmTip.style.opacity = '0'; });
+  });
 }
 
 function switchBrainMode(mode) {
