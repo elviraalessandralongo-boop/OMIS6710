@@ -1406,11 +1406,20 @@ function setProgress(pct, msg) {
   document.getElementById('progress-fill').style.width = pct + '%';
   document.getElementById('progress-text').textContent = msg;
 }
-function showError(msg) {
+function showError(msg, type = 'error') {
   const el = document.getElementById('landing-error');
   el.style.display = 'block';
   el.style.whiteSpace = 'pre-line';
   el.textContent = msg;
+  if (type === 'amber') {
+    el.style.background = 'var(--amber-dim)';
+    el.style.borderColor = 'var(--amber)';
+    el.style.color = 'var(--amber)';
+  } else {
+    el.style.background = 'var(--red-dim)';
+    el.style.borderColor = 'var(--red)';
+    el.style.color = 'var(--red)';
+  }
 }
 
 async function handleFile(file) {
@@ -1422,7 +1431,7 @@ async function handleFile(file) {
       /Streaming_History_Audio_.*\.json$/i.test(n) && !zip.files[n].dir
     );
     if (!audioFiles.length) {
-      showError("This doesn't look like a Spotify streaming history export. Make sure you're uploading the right zip — the one containing files named Streaming_History_Audio.");
+      showError("This doesn't look like a Spotify Extended Streaming History export. Make sure you're uploading the zip Spotify sent you — the one containing files named Streaming_History_Audio.", 'amber');
       return;
     }
     let all = [];
@@ -1584,6 +1593,25 @@ function animateBars(container) {
       el.style.width = el.dataset.width;
     });
   }, 100);
+}
+
+// Shown on every podcast tool page when the dataset has fewer than 10 podcast records
+function podcastInsufficientDataHtml() {
+  const musicTools = [
+    { page: 'peak-obsession', label: 'Peak Obsession' },
+    { page: 'one-hit',        label: 'One Hit Wonder' },
+    { page: 'forgotten',      label: 'Forgotten Plays' }
+  ];
+  const cards = musicTools.map(t =>
+    `<div onclick="navigate('${t.page}')" style="cursor:pointer;flex:1;min-width:140px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:8px;transition:border-color 0.15s ease" onmouseover="this.style.borderColor='var(--text3)'" onmouseout="this.style.borderColor='var(--border)'">
+      <span style="font-size:0.88rem;color:var(--text2)">${t.label}</span>
+      <span style="color:var(--text3);font-size:0.9rem">→</span>
+    </div>`
+  ).join('');
+  return `<div style="max-width:520px;padding-top:8px">
+    <p style="font-size:1rem;color:var(--text2);line-height:1.7;margin-bottom:28px">Looks like you mostly use Spotify for music — there isn't enough podcast history here to run this analysis. Check out the music tools instead.</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">${cards}</div>
+  </div>`;
 }
 
 function emptyState(icon, title, desc) {
@@ -1823,8 +1851,8 @@ const GUILT_WINDOWS = [
 function renderGuiltQueue(windowIdx = 1) {
   const el = document.getElementById('guilt-queue-content');
 
-  if (!State.podcasts.length) {
-    el.innerHTML = emptyState('😬','No abandoned podcasts found','Either you finish everything you start, or you haven\'t explored podcasts on Spotify yet. Impressive either way.');
+  if (State.podcasts.length < 10) {
+    el.innerHTML = podcastInsufficientDataHtml();
     return;
   }
 
@@ -1998,8 +2026,8 @@ function animateBannerCounts(data) {
 ═══════════════════════════════════════════ */
 function renderHooked() {
   const el = document.getElementById('hooked-content');
-  if (!State.podcasts.length) {
-    el.innerHTML = emptyState('🎣','No surprise obsessions detected','You\'re deliberate about what you listen to — nothing slipped through unless you chose it.');
+  if (State.podcasts.length < 10) {
+    el.innerHTML = podcastInsufficientDataHtml();
     return;
   }
 
@@ -2189,8 +2217,8 @@ const BINGE_WINDOWS = [
 
 function renderBinge(windowIdx = 3) {
   const el = document.getElementById('binge-content');
-  if (!State.podcasts.length) {
-    el.innerHTML = emptyState('📚','No binge sessions found','You\'re more of a steady listener than a rabbit-hole type. Nothing wrong with that.');
+  if (State.podcasts.length < 10) {
+    el.innerHTML = podcastInsufficientDataHtml();
     return;
   }
 
@@ -2601,8 +2629,8 @@ const BUBBLE_CATEGORIES = [
 
 function renderPodBubble() {
   const el = document.getElementById('pod-bubble-content');
-  if (!State.podcasts.length) {
-    el.innerHTML = emptyState('🫧','Not enough podcast data','Start exploring a few shows and come back — your bubble is still forming.');
+  if (State.podcasts.length < 10) {
+    el.innerHTML = podcastInsufficientDataHtml();
     return;
   }
 
