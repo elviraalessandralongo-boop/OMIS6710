@@ -1604,6 +1604,14 @@ function animateGauges(container) {
   }, 100);
 }
 
+function animateDonuts(container) {
+  setTimeout(() => {
+    container.querySelectorAll('.ohw-donut-fill').forEach(circle => {
+      circle.style.strokeDashoffset = circle.dataset.finalOffset;
+    });
+  }, 50);
+}
+
 // Shown on every podcast tool page when the dataset has fewer than 10 podcast records
 function podcastInsufficientDataHtml() {
   const musicTools = [
@@ -3026,6 +3034,9 @@ function renderOneHit() {
     const trackDates = artistTrackDates[r.artist]?.[r.topTrack] || [];
     const peakLabel = peakYearLabel(trackDates);
     const hiddenCls = i >= 5 ? ' class="show-more-item"' : '';
+    const CIRC = 175.93;
+    const finalOffset = (CIRC * (1 - pct / 100)).toFixed(2);
+    const donutDelay = i * 100;
     html += `<li${hiddenCls}>
       <div class="result-num">${i+1}</div>
       <div class="result-body">
@@ -3045,6 +3056,20 @@ function renderOneHit() {
           </div>
           <div style="font-size:0.7rem;color:var(--text3);margin-top:4px">${pct}% of all plays go to this one song</div>
         </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;padding-top:2px">
+        <svg width="64" height="64" viewBox="0 0 64 64" style="display:block">
+          <circle cx="32" cy="32" r="28" fill="none" stroke="var(--border)" stroke-width="8"/>
+          <circle cx="32" cy="32" r="28" fill="none" stroke="var(--accent)" stroke-width="8"
+                  stroke-linecap="round" transform="rotate(-90 32 32)"
+                  stroke-dasharray="${CIRC}" stroke-dashoffset="${CIRC}"
+                  class="ohw-donut-fill"
+                  style="transition:stroke-dashoffset 600ms cubic-bezier(0.4,0,0.2,1) ${donutDelay}ms"
+                  data-final-offset="${finalOffset}"/>
+          <text x="32" y="36" text-anchor="middle" font-size="11" font-weight="600"
+                fill="var(--text)" font-family="Space Grotesk,sans-serif">${pct}%</text>
+        </svg>
+        <div style="font-size:0.6rem;color:var(--text3);text-align:center;margin-top:4px;line-height:1.4">of plays<br>one song</div>
       </div>
     </li>`;
   });
@@ -3121,6 +3146,7 @@ function renderOneHit() {
 
   el.innerHTML = html;
   animateBars(el);
+  animateDonuts(el);
 }
 
 /* ═══════════════════════════════════════════
