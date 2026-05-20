@@ -2398,10 +2398,109 @@ function renderBinge(windowIdx = 3) {
       ${bigDayTop3.length ? `<div style="font-size:0.78rem;color:var(--text3);margin-top:10px;font-style:italic">Here's what was playing: ${bigDayTop3.map(n=>`<strong style="color:var(--text2)">${escHtml(n)}</strong>`).join(', ')}</div>` : ''}
     </div>` : '';
 
+  // ── Binge Calendar Heatmap ──
+  // Ensure all-time sessions are cached so the calendar always covers the full date range
+  if (!State.computed['_bingeSessions_3']) {
+    State.computed['_bingeSessions_3'] = computeBingeSessions(State.podcasts);
+  }
+  const calSessions = State.computed['_bingeSessions_3'];
+
+  // Build per-day aggregates: key = 'YYYY-MM-DD' (1-indexed month, local time)
+  const calDayMap = {};
+  for (const session of calSessions) {
+    const startMs = new Date(session[0].ts).getTime() - (session[0].ms_played || 0);
+    const d = tsToLocal(new Date(startMs).toISOString());
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const ms = session.reduce((s, r) => s + (r.ms_played || 0), 0);
+    if (!calDayMap[key]) calDayMap[key] = { hours: 0, episodes: 0 };
+    calDayMap[key].hours += ms / 3600000;
+    calDayMap[key].episodes += session.length;
+  }
+
+  let bingeCalendarHtml = '';
+  const calKeys = Object.keys(calDayMap).sort();
+  if (calKeys.length > 0) {
+    // Expand date range to full Mon–Sun weeks
+    const [fy, fm, fd] = calKeys[0].split('-').map(Number);
+    const [ly, lm, ld] = calKeys[calKeys.length - 1].split('-').map(Number);
+    let calStart = new Date(fy, fm - 1, fd);
+    let calEnd   = new Date(ly, lm - 1, ld);
+    const sDow = (calStart.getDay() + 6) % 7; // Mon=0
+    calStart = new Date(calStart.getTime() - sDow * 86400000);
+    const eDow = (calEnd.getDay() + 6) % 7;
+    if (eDow < 6) calEnd = new Date(calEnd.getTime() + (6 - eDow) * 86400000);
+
+    // Build week columns — each week is 7 day objects
+    const calWeeks = [];
+    let cur = new Date(calStart);
+    while (cur <= calEnd) {
+      const week = [];
+      for (let i = 0; i < 7; i++) {
+        const day = new Date(cur);
+        week.push({
+          date: day,
+          // binge key: 1-indexed month (matches calDayMap)
+          key: `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`,
+          // bigDayMs key: 0-indexed month (matches bigDayMs built above)
+          bigKey: `${day.getFullYear()}-${String(day.getMonth()).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`,
+        });
+        cur = new Date(cur.getTime() + 86400000);
+      }
+      calWeeks.push(week);
+    }
+
+    const MSHO  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const DLBLS = ['M','','W','','F','',''];
+    const SZ = 11, G = 2, MH = 18; // cell size, gap, month-label height
+
+    // Cell color: binge intensity → green tiers; listening but no binge → bg; no listening → border
+    function calColor(day) {
+      const b = calDayMap[day.key];
+      if (b) return b.hours < 2 ? 'rgba(29,185,84,0.3)' : b.hours < 4 ? 'rgba(29,185,84,0.6)' : 'rgb(29,185,84)';
+      return (bigDayMs[day.bigKey] || 0) > 0 ? 'var(--bg)' : 'var(--border)';
+    }
+
+    const dayLabelCol = `
+      <div style="display:flex;flex-direction:column;gap:${G}px;margin-right:3px;flex-shrink:0">
+        <div style="height:${MH}px"></div>
+        ${DLBLS.map(l => `<div style="height:${SZ}px;width:14px;font-size:0.58rem;color:var(--text3);line-height:${SZ}px;text-align:right">${l}</div>`).join('')}
+      </div>`;
+
+    const weekCols = calWeeks.map((week, wi) => {
+      const prev = calWeeks[wi - 1];
+      const newMonth = !prev || week[0].date.getMonth() !== prev[0].date.getMonth();
+      const mLbl = newMonth ? MSHO[week[0].date.getMonth()] : '';
+      const cells = week.map(day => {
+        const bg  = calColor(day);
+        const b   = calDayMap[day.key];
+        const tip = b
+          ? `${day.date.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})} · ${Math.round(b.hours*10)/10}h · ${b.episodes} episode${b.episodes!==1?'s':''}`
+          : '';
+        return `<div style="width:${SZ}px;height:${SZ}px;border-radius:2px;background:${bg};cursor:${b?'pointer':'default'};flex-shrink:0"${b?` data-cal-tip="${escHtml(tip)}"`:''}></div>`;
+      }).join('');
+      return `<div style="display:flex;flex-direction:column;gap:${G}px">
+        <div style="height:${MH}px;font-size:0.58rem;color:var(--text3);line-height:${MH}px;white-space:nowrap">${mLbl}</div>
+        ${cells}
+      </div>`;
+    }).join('');
+
+    bingeCalendarHtml = `
+      <div style="margin-bottom:36px">
+        <p style="font-size:0.78rem;color:var(--text3);margin:0 0 12px;line-height:1.5">Each square is a day. Darker green means a longer binge session.</p>
+        <div style="overflow-x:auto;padding-bottom:4px">
+          <div style="display:inline-flex;gap:${G}px;align-items:flex-start">
+            ${dayLabelCol}
+            ${weekCols}
+          </div>
+        </div>
+      </div>`;
+  }
+
   let html = `
     ${bigDayHtml}
     <div class="toggle-row">${toggleHtml}</div>
     ${heroStatement(`Your longest rabbit hole was <em>${longestSessionH} hours on a ${escHtml(longestSessionDay)}</em>. You listened to <em>${longestSessionEps} episodes</em> back to back — and then, eventually, you surfaced.`)}
+    ${bingeCalendarHtml}
     <div class="evidence-section">
       <div class="evidence-label">The evidence</div>
       <p style="font-size:0.78rem;color:var(--text3);margin:0 0 14px;line-height:1.5">Each row is a session where you listened to 3 or more episodes back to back. Sorted by longest first.</p>`;
@@ -2463,6 +2562,28 @@ function renderBinge(windowIdx = 3) {
 
   html += toolVerdict(biVerdict);
   el.innerHTML = html;
+
+  // Wire binge calendar tooltips
+  const existingCalTip = document.getElementById('binge-cal-tip');
+  if (existingCalTip) existingCalTip.remove();
+  const calTip = document.createElement('div');
+  calTip.id = 'binge-cal-tip';
+  calTip.style.cssText = 'position:fixed;pointer-events:none;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:0.75rem;color:var(--text);line-height:1.5;white-space:nowrap;opacity:0;transition:opacity 0.1s ease;z-index:9999';
+  document.body.appendChild(calTip);
+  el.querySelectorAll('[data-cal-tip]').forEach(cell => {
+    cell.addEventListener('mouseenter', () => { calTip.textContent = cell.dataset.calTip; calTip.style.opacity = '1'; });
+    cell.addEventListener('mousemove', e => {
+      const tw = calTip.offsetWidth || 260;
+      const th = calTip.offsetHeight || 36;
+      let tx = e.clientX + 14, ty = e.clientY - 42;
+      if (tx + tw > window.innerWidth  - 8) tx = e.clientX - tw - 14;
+      if (ty < 8)                           ty = e.clientY + 14;
+      if (ty + th > window.innerHeight - 8) ty = window.innerHeight - th - 8;
+      calTip.style.left = tx + 'px';
+      calTip.style.top  = ty + 'px';
+    });
+    cell.addEventListener('mouseleave', () => { calTip.style.opacity = '0'; });
+  });
 }
 
 /* ═══════════════════════════════════════════
