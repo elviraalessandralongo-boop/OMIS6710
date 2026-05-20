@@ -4669,61 +4669,70 @@ function renderMusicBubble() {
   const totalMs = artistList.reduce((s, a) => s + a.ms, 0);
   top20.forEach(a => { a.pct = a.ms / totalMs; });
 
-  // Canvas
-  const W = 640, H = 620;
-  const MIN_R = 16, MAX_R = 95;
+  // Measure actual container width so the SVG uses real pixel coordinates — no viewBox scaling
+  const W = Math.max(400, (el.clientWidth || 700) - 4);
+  const H = 600;
+  const MIN_R = 20, MAX_R = 150;
   const maxHours = top20[0].hours;
 
-  // Bubbles with radii proportional to sqrt(hours)
+  // Scale radii before simulation using spec formula: minR + (maxR - minR) * sqrt(hours / maxHours)
   const bubbles = top20.map((a, i) => ({
     ...a, i,
-    r: Math.max(MIN_R, MAX_R * Math.sqrt(a.hours / maxHours)),
+    r: Math.min(MAX_R, Math.max(MIN_R, MIN_R + (MAX_R - MIN_R) * Math.sqrt(a.hours / maxHours))),
     vx: 0, vy: 0,
   }));
 
-  // Seed positions using golden-angle spiral so bubbles start spread out
+  // Seed: golden-angle spiral outward from center
   const PHI = 2.399963;
   bubbles.forEach((b, i) => {
-    const rad = i === 0 ? 0 : Math.min(50 + i * 20, Math.min(W, H) / 2 - b.r - 4);
+    const rad = i === 0 ? 0 : Math.min(32 + i * 22, Math.min(W, H) / 2 - b.r - 4);
     b.x = W / 2 + Math.cos(i * PHI) * rad;
     b.y = H / 2 + Math.sin(i * PHI) * rad;
   });
 
-  // Force simulation — 300 iterations, cooling alpha
-  for (let iter = 0; iter < 300; iter++) {
-    const alpha = Math.pow(1 - iter / 300, 1.5);
+  // Force simulation — 200 iterations, collision resolution + center gravity
+  for (let iter = 0; iter < 200; iter++) {
+    const alpha = Math.pow(1 - iter / 200, 1.5);
 
-    // Separation: push overlapping pairs apart
+    // Collision: push overlapping pairs apart by half the overlap each
     for (let i = 0; i < bubbles.length; i++) {
       for (let j = i + 1; j < bubbles.length; j++) {
         const a = bubbles[i], b = bubbles[j];
         const dx = b.x - a.x || 0.01;
         const dy = b.y - a.y || 0.01;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        const minDist = a.r + b.r + 3;
+        const minDist = a.r + b.r + 4; // 4px padding between bubbles
         if (dist < minDist) {
-          const push = ((minDist - dist) / dist) * 0.48;
+          const overlap = (minDist - dist) / dist;
+          const push = overlap * 0.5;
           a.vx -= dx * push; a.vy -= dy * push;
           b.vx += dx * push; b.vy += dy * push;
         }
       }
     }
 
-    // Center gravity — decays with alpha
+    // Center gravity: pull each bubble 2% toward SVG center, cooled by alpha
     for (const b of bubbles) {
-      b.vx += (W / 2 - b.x) * 0.025 * alpha;
-      b.vy += (H / 2 - b.y) * 0.025 * alpha;
+      b.vx += (W / 2 - b.x) * 0.02 * alpha;
+      b.vy += (H / 2 - b.y) * 0.02 * alpha;
     }
 
-    // Integrate + dampen + clamp
+    // Integrate and damp
     for (const b of bubbles) {
-      b.x = Math.max(b.r + 2, Math.min(W - b.r - 2, b.x + b.vx));
-      b.y = Math.max(b.r + 2, Math.min(H - b.r - 2, b.y + b.vy));
-      b.vx *= 0.5; b.vy *= 0.5;
+      b.x += b.vx;
+      b.y += b.vy;
+      b.vx *= 0.5;
+      b.vy *= 0.5;
     }
   }
 
-  // Inject CSS animation once
+  // Post-simulation: clamp all centers inside SVG bounds by their radius
+  for (const b of bubbles) {
+    b.x = Math.max(b.r + 2, Math.min(W - b.r - 2, b.x));
+    b.y = Math.max(b.r + 2, Math.min(H - b.r - 2, b.y));
+  }
+
+  // Inject animation keyframes once per session
   if (!document.getElementById('mb-anim-style')) {
     const s = document.createElement('style');
     s.id = 'mb-anim-style';
@@ -4731,42 +4740,50 @@ function renderMusicBubble() {
     document.head.appendChild(s);
   }
 
-  // Build SVG elements
+  // Build SVG bubble elements
   let svgContent = '';
   for (const b of bubbles) {
-    const opacity = b.i === 0 ? 1 : b.i < 5 ? 0.70 : 0.40;
+    // Opacity tiers: largest=1.0, 2-5=0.75, 6-10=0.50, 11-20=0.30
+    const opacity = b.i === 0 ? 1.0 : b.i < 5 ? 0.75 : b.i < 10 ? 0.50 : 0.30;
     const fill    = b.i === 0 ? '#1ed760' : '#1db954';
-    const delay   = b.i * 28;
-    const tip     = `${b.name} — ${b.hours} hours (${Math.round(b.pct * 100)}% of your music listening)`;
+    const delay   = b.i * 30; // stagger 30ms per bubble
+    const tipText = `${b.name} — ${b.hours} hours (${Math.round(b.pct * 100)}% of your music listening)`;
 
-    // <g> wrapper so transform-origin is the bubble centre
     svgContent += `<g transform="translate(${b.x.toFixed(1)},${b.y.toFixed(1)})" style="animation:mbGrow 0.6s ease-out ${delay}ms both">`;
-    svgContent += `<circle cx="0" cy="0" r="${b.r.toFixed(1)}" fill="${fill}" fill-opacity="${opacity}" class="mb-bubble" data-name="${escHtml(b.name)}" data-tip="${escHtml(tip)}" style="cursor:pointer"/>`;
+    svgContent += `<circle cx="0" cy="0" r="${b.r.toFixed(1)}" fill="${fill}" fill-opacity="${opacity}" class="mb-bubble" data-tip="${escHtml(tipText)}" style="cursor:pointer"/>`;
 
-    // Label inside bubble if radius ≥ 40
-    if (b.r >= 40) {
-      const fs = Math.max(9, Math.min(13, b.r * 0.28));
+    // Label inside bubble only if radius >= 45; font-size clamped to [10, 18]
+    if (b.r >= 45) {
+      const fs = Math.max(10, Math.min(18, b.r / 4));
+      const charsPerLine = Math.floor((b.r * 1.7) / (fs * 0.6));
       const words = b.name.split(' ');
-      let lines2;
-      if (words.length < 2 || b.name.length <= 11) {
-        lines2 = [b.name];
-      } else {
+      let lines;
+      if (b.name.length <= charsPerLine) {
+        lines = [b.name];
+      } else if (words.length > 1) {
         const mid = Math.ceil(words.length / 2);
-        lines2 = [words.slice(0, mid).join(' '), words.slice(mid).join(' ')];
+        const l1 = words.slice(0, mid).join(' ');
+        const l2 = words.slice(mid).join(' ');
+        lines = [
+          l1.length > charsPerLine ? l1.slice(0, charsPerLine - 1) + '…' : l1,
+          l2.length > charsPerLine ? l2.slice(0, charsPerLine - 1) + '…' : l2,
+        ];
+      } else {
+        lines = [b.name.length > charsPerLine ? b.name.slice(0, charsPerLine - 1) + '…' : b.name];
       }
-      const lineH = fs * 1.3;
-      lines2.forEach((ln, li) => {
-        const ty = (li - (lines2.length - 1) / 2) * lineH;
-        svgContent += `<text x="0" y="${ty.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-family="Space Grotesk,sans-serif" font-size="${fs}" font-weight="600" fill="#fff" pointer-events="none" style="user-select:none">${escHtml(ln)}</text>`;
+      const lineH = fs * 1.25;
+      lines.forEach((ln, li) => {
+        const ty = (li - (lines.length - 1) / 2) * lineH;
+        svgContent += `<text x="0" y="${ty.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-family="Space Grotesk,sans-serif" font-size="${fs.toFixed(1)}" font-weight="600" fill="#fff" pointer-events="none" style="user-select:none">${escHtml(ln)}</text>`;
       });
     }
     svgContent += `</g>`;
   }
 
+  // SVG uses explicit pixel dimensions — no viewBox, no scaling distortion
   const svgHtml = `
-  <div style="position:relative;width:100%;max-width:${W}px;margin:0 auto">
-    <svg id="music-bubble-svg" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="Music artist bubble chart">${svgContent}</svg>
-    <div id="mb-tooltip" style="position:absolute;pointer-events:none;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:0.78rem;color:var(--text);line-height:1.5;white-space:normal;max-width:260px;opacity:0;transition:opacity 0.12s ease;z-index:10"></div>
+  <div style="width:100%;overflow:hidden">
+    <svg id="music-bubble-svg" width="${W}" height="${H}" style="display:block;overflow:hidden" role="img" aria-label="Music artist bubble chart">${svgContent}</svg>
   </div>`;
 
   // Insight lines
@@ -4802,26 +4819,29 @@ function renderMusicBubble() {
       </div>
     </div>`;
 
-  // Tooltip wiring — follows cursor within container
+  // Tooltip: position:fixed, follows cursor, all 4 viewport-edge overflow checks
   const svg = document.getElementById('music-bubble-svg');
-  const tooltip = document.getElementById('mb-tooltip');
-  if (!svg || !tooltip) return;
-  const container = svg.parentElement;
+  if (!svg) return;
+  const oldTip = document.getElementById('mb-tooltip-fixed');
+  if (oldTip) oldTip.remove();
+  const mbTip = document.createElement('div');
+  mbTip.id = 'mb-tooltip-fixed';
+  mbTip.style.cssText = 'position:fixed;pointer-events:none;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:0.78rem;color:var(--text);line-height:1.5;white-space:normal;max-width:260px;opacity:0;transition:opacity 0.12s ease;z-index:9999';
+  document.body.appendChild(mbTip);
+
   svg.querySelectorAll('.mb-bubble').forEach(circle => {
-    circle.addEventListener('mouseenter', () => {
-      tooltip.textContent = circle.dataset.tip;
-      tooltip.style.opacity = '1';
-    });
+    circle.addEventListener('mouseenter', () => { mbTip.textContent = circle.dataset.tip; mbTip.style.opacity = '1'; });
     circle.addEventListener('mousemove', e => {
-      const rect = container.getBoundingClientRect();
-      let tx = e.clientX - rect.left + 14;
-      let ty = e.clientY - rect.top - 44;
-      if (ty < 4) ty = e.clientY - rect.top + 14;
-      if (tx + 270 > rect.width) tx = e.clientX - rect.left - 276;
-      tooltip.style.left = tx + 'px';
-      tooltip.style.top  = ty + 'px';
+      const tw = mbTip.offsetWidth || 200;
+      const th = mbTip.offsetHeight || 40;
+      let tx = e.clientX + 14, ty = e.clientY - 44;
+      if (tx + tw > window.innerWidth  - 8) tx = e.clientX - tw - 14;
+      if (ty < 8)                           ty = e.clientY + 14;
+      if (ty + th > window.innerHeight - 8) ty = window.innerHeight - th - 8;
+      mbTip.style.left = tx + 'px';
+      mbTip.style.top  = ty + 'px';
     });
-    circle.addEventListener('mouseleave', () => { tooltip.style.opacity = '0'; });
+    circle.addEventListener('mouseleave', () => { mbTip.style.opacity = '0'; });
   });
 }
 
