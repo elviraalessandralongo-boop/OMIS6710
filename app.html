@@ -784,7 +784,13 @@ body {
   background: var(--border);
 }
 .forgotten-worth li { border-left: 2px solid var(--amber); padding-left: 14px; margin-left: -16px; }
-.forgotten-cut { opacity: 0.55; }
+.fg-check-box {
+  width: 16px; height: 16px; border: 1px solid var(--border); border-radius: 3px;
+  flex-shrink: 0; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  margin-top: 6px; transition: background 0.15s, border-color 0.15s;
+}
+.fg-check-box.checked { background: var(--accent2); border-color: var(--accent2); }
+.fg-check-box.checked::after { content: '✓'; color: #fff; font-size: 0.6rem; font-weight: 700; line-height: 1; }
 
 /* ── PERSONALITY WHY ── */
 .why-item {
@@ -3700,6 +3706,79 @@ const FORGOTTEN_WINDOWS = [
   { label: '1 year',   days: 365 },
 ];
 
+// Session-persistent checked state for Safe to Let Go checklist
+const _fgChecked = new Set();
+
+function initFgChecklist(el) {
+  const cutList  = el.querySelector('#fg-cut-list');
+  const counter  = el.querySelector('#fg-cut-counter');
+  const copyWrap = el.querySelector('#fg-cut-copy-wrap');
+  const copyBtn  = el.querySelector('#fg-cut-copy-btn');
+  const clearEl  = el.querySelector('#fg-cut-clear');
+  if (!cutList || !counter) return;
+
+  function getKey(li) { return (li.dataset.fgTrack || '') + '||' + (li.dataset.fgArtist || ''); }
+
+  function updateCounter() {
+    const n = _fgChecked.size;
+    counter.textContent = `${n} song${n !== 1 ? 's' : ''} marked for removal`;
+    if (copyWrap) copyWrap.style.display = n > 0 ? '' : 'none';
+    if (clearEl)  clearEl.parentElement.style.display = n > 0 ? '' : 'none';
+  }
+
+  function setChecked(li, on) {
+    const key = getKey(li);
+    const box   = li.querySelector('.fg-check-box');
+    const title = li.querySelector('.result-title');
+    if (on) {
+      _fgChecked.add(key);
+      li.style.opacity = '0.45';
+      if (box)   box.classList.add('checked');
+      if (title) title.style.textDecoration = 'line-through';
+    } else {
+      _fgChecked.delete(key);
+      li.style.opacity = '';
+      if (box)   box.classList.remove('checked');
+      if (title) title.style.textDecoration = '';
+    }
+    updateCounter();
+  }
+
+  cutList.querySelectorAll('li[data-fg-track]').forEach(li => {
+    const box = li.querySelector('.fg-check-box');
+    if (_fgChecked.has(getKey(li))) setChecked(li, true);
+    if (box) box.addEventListener('click', e => { e.stopPropagation(); setChecked(li, !box.classList.contains('checked')); });
+    li.style.cursor = 'pointer';
+    li.addEventListener('click', e => {
+      if (e.target.closest('.item-details-toggle') || e.target.closest('.item-details') || e.target.closest('.fg-check-box')) return;
+      setChecked(li, !box?.classList.contains('checked'));
+    });
+  });
+
+  if (copyBtn) {
+    copyBtn.addEventListener('click', () => {
+      const lines = [];
+      cutList.querySelectorAll('li[data-fg-track]').forEach(li => {
+        if (_fgChecked.has(getKey(li))) lines.push(`${li.dataset.fgTrack} — ${li.dataset.fgArtist}`);
+      });
+      navigator.clipboard.writeText(lines.join('\n')).then(() => {
+        copyBtn.textContent = 'Copied to clipboard ✓';
+        copyBtn.disabled = true;
+        setTimeout(() => { copyBtn.textContent = 'Copy list'; copyBtn.disabled = false; }, 2000);
+      });
+    });
+  }
+
+  if (clearEl) {
+    clearEl.addEventListener('click', e => {
+      e.preventDefault();
+      cutList.querySelectorAll('li[data-fg-track]').forEach(li => setChecked(li, false));
+    });
+  }
+
+  updateCounter();
+}
+
 function renderForgotten(windowIdx = 0) {
   const el = document.getElementById('forgotten-content');
   if (!State.music.length) {
@@ -3781,6 +3860,37 @@ function renderForgotten(windowIdx = 0) {
     </li>`;
   }
 
+  function fgCutRow(r, i, maxDs, hidden) {
+    const lastStr = r.lastPlayed.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    const firstStr = r.firstPlayed ? r.firstPlayed.toLocaleDateString('en-US',{month:'short',year:'numeric'}) : '?';
+    const silencePct = Math.round((r.daysSince / maxDs) * 100);
+    const silenceColor = r.daysSince > 365 ? 'var(--red)' : r.daysSince > 180 ? 'var(--amber)' : 'var(--text3)';
+    const hiddenCls = hidden ? 'show-more-item' : '';
+    const key = `${r.track}||${r.artist}`;
+    const isChecked = _fgChecked.has(key);
+    const liStyle = isChecked ? ' style="opacity:0.45"' : '';
+    const titleStyle = isChecked ? ' style="text-decoration:line-through"' : '';
+    return `<li class="${hiddenCls}" data-fg-track="${escHtml(r.track)}" data-fg-artist="${escHtml(r.artist)}"${liStyle}>
+      <div class="fg-check-box${isChecked ? ' checked' : ''}"></div>
+      <div class="result-num">${i+1}</div>
+      <div class="result-body">
+        <div class="result-title"${titleStyle}>${escHtml(r.track)}</div>
+        <div class="result-sub">${escHtml(r.artist)}</div>
+        <div style="font-size:0.8rem;color:${silenceColor};margin-top:4px">Silent for ${fmtNum(r.daysSince)} days</div>
+        <button class="item-details-toggle" onclick="toggleDetails(this)" aria-expanded="false">+ details</button>
+        <div class="item-details">
+          <div class="result-stats" style="margin-bottom:8px">
+            <span class="result-stat">Total plays: <strong>${r.plays}</strong></span>
+            <span class="result-stat">Active: <strong>${firstStr} → ${lastStr}</strong></span>
+          </div>
+          <div class="bar-wrap" style="max-width:280px">
+            <div class="bar-fill" style="background:${silenceColor};width:0" data-width="${silencePct}%"></div>
+          </div>
+        </div>
+      </div>
+    </li>`;
+  }
+
   const jumpWorthHtml = worthRevisiting.length ? `<button class="toggle-btn" onclick="document.getElementById('fg-worth-header').scrollIntoView({behavior:'smooth'});setTimeout(()=>window.scrollBy(0,-80),10)">⬇ Worth Revisiting — ${worthRevisiting.length} song${worthRevisiting.length !== 1 ? 's' : ''}</button>` : '';
   const jumpCutHtml   = safeToCut.length      ? `<button class="toggle-btn" onclick="document.getElementById('fg-cut-header').scrollIntoView({behavior:'smooth'});setTimeout(()=>window.scrollBy(0,-80),10)">⬇ Safe to Let Go — ${safeToCut.length} song${safeToCut.length !== 1 ? 's' : ''}</button>` : '';
 
@@ -3804,8 +3914,14 @@ function renderForgotten(windowIdx = 0) {
 
   if (safeToCut.length) {
     html += `<div id="fg-cut-header" class="forgotten-section-header" style="margin-top:${worthRevisiting.length ? '32px' : '0'}">Safe to Let Go — ${safeToCut.length} song${safeToCut.length !== 1 ? 's' : ''} with under 20 plays</div>
-    <ul class="result-list forgotten-cut">`;
-    safeToCut.forEach((r, i) => { html += fgRow(r, i, maxDaysSince, i >= 5); });
+    <p style="font-size:0.78rem;color:var(--text3);margin:8px 0 14px;line-height:1.5">These songs have been sitting in your library untouched. Consider removing them from your liked songs and playlists to keep things clean.</p>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+      <span id="fg-cut-counter" style="font-size:0.78rem;color:var(--text3)">0 songs marked for removal</span>
+      <span id="fg-cut-copy-wrap" style="display:none"><button id="fg-cut-copy-btn" style="padding:3px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:'Space Grotesk',sans-serif;font-size:0.72rem;font-weight:600;cursor:pointer;transition:all 0.15s">Copy list</button></span>
+      <span style="display:none"><a id="fg-cut-clear" href="#" style="font-size:0.72rem;color:var(--text3);text-decoration:underline;text-underline-offset:2px">Clear all</a></span>
+    </div>
+    <ul class="result-list forgotten-cut" id="fg-cut-list">`;
+    safeToCut.forEach((r, i) => { html += fgCutRow(r, i, maxDaysSince, i >= 5); });
     html += '</ul>';
     if (safeToCut.length > 5) html += `<button class="show-more-btn" onclick="revealMore(this)">Show ${safeToCut.length - 5} more</button>`;
   }
@@ -3814,6 +3930,7 @@ function renderForgotten(windowIdx = 0) {
   html += toolVerdict(fgVerdict);
   el.innerHTML = html;
   animateBars(el);
+  initFgChecklist(el);
 }
 
 /* ═══════════════════════════════════════════
