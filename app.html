@@ -3407,8 +3407,24 @@ function renderPeakObsession() {
     </div>`;
   }
 
+  const shapeLegendItems = [
+    { label: 'A MOMENT',  color: 'var(--amber)',   bg: 'rgba(224,160,80,0.12)',   def: 'Most plays happened within 2 weeks then stopped' },
+    { label: 'A PHASE',   color: '#6ec97d',         bg: 'rgba(110,201,125,0.12)',  def: 'Elevated listening for 1–3 months then gradually faded' },
+    { label: 'A CONSTANT',color: 'var(--accent2)',  bg: 'rgba(29,185,84,0.12)',    def: 'Still being played regularly near its original peak volume' },
+    { label: 'A RETURN',  color: 'var(--purple)',   bg: 'rgba(156,92,224,0.12)',   def: 'Spiked, disappeared, then came back again later' },
+  ];
+  const shapeLegendHtml = `
+    <div style="display:flex;flex-wrap:wrap;margin-bottom:32px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+      ${shapeLegendItems.map((item, i) => `
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 18px;flex:1;min-width:190px;${i < shapeLegendItems.length - 1 ? 'border-right:1px solid var(--border);' : ''}">
+          <span style="display:inline-block;font-size:0.62rem;font-weight:700;letter-spacing:0.06em;padding:2px 8px;border-radius:20px;background:${item.bg};color:${item.color};white-space:nowrap;flex-shrink:0">${item.label}</span>
+          <span style="font-size:0.72rem;color:var(--text3);line-height:1.4">${item.def}</span>
+        </div>`).join('')}
+    </div>`;
+
   html += `
     ${heroStatement(`Your most intense obsession was <em>"${escHtml(topByDrop.track)}"</em> by ${escHtml(topByDrop.artist)} — <em>${topByDrop.peakCount} plays in a single month</em> in ${peakDateStr}. You haven't touched it in <em>${monthsSincePeak} months</em>.`)}
+    ${shapeLegendHtml}
     <div class="evidence-section">
       <div class="evidence-label">The evidence — sorted by biggest drop from peak</div>
       <p style="font-size:0.78rem;color:var(--text3);margin:0 0 14px;line-height:1.5">Each bar shows your play count per week. The tallest bar is your peak — when you were most obsessed.</p>
