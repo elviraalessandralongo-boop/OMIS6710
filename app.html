@@ -3169,6 +3169,7 @@ function renderOneHit() {
   // Count plays per artist and per track
   const artistPlays = {};
   const artistTracks = {};
+  const artistFirstTs = {};
   const artistLastTs = {};
   const artistTrackDates = {};
   const trackDatesAll = {};
@@ -3180,7 +3181,8 @@ function renderOneHit() {
     if (!artistTracks[artist]) artistTracks[artist] = {};
     artistTracks[artist][track] = (artistTracks[artist][track] || 0) + 1;
     const ts = new Date(r.ts).getTime();
-    if (!artistLastTs[artist] || ts > artistLastTs[artist]) artistLastTs[artist] = ts;
+    if (!artistFirstTs[artist] || ts < artistFirstTs[artist]) artistFirstTs[artist] = ts;
+    if (!artistLastTs[artist]  || ts > artistLastTs[artist])  artistLastTs[artist]  = ts;
     if (!artistTrackDates[artist]) artistTrackDates[artist] = {};
     if (!artistTrackDates[artist][track]) artistTrackDates[artist][track] = [];
     artistTrackDates[artist][track].push(new Date(r.ts));
@@ -3197,7 +3199,7 @@ function renderOneHit() {
     const pct = topTrack[1] / total;
     if (pct < 0.7) continue;
     const uniqueTracks = Object.keys(tracks).length;
-    results.push({ artist, topTrack: topTrack[0], topTrackPlays: topTrack[1], total, pct, uniqueTracks, lastTs: artistLastTs[artist] });
+    results.push({ artist, topTrack: topTrack[0], topTrackPlays: topTrack[1], total, pct, uniqueTracks, firstTs: artistFirstTs[artist], lastTs: artistLastTs[artist] });
   }
   results.sort((a,b) => b.lastTs - a.lastTs);
 
@@ -3216,7 +3218,7 @@ function renderOneHit() {
     ? 'You mostly go deep on artists. When you find someone, you explore.'
     : 'You know what you like. One perfect song is enough — the rest of a discography is optional.';
 
-  function peakYearLabel(dates) {
+  function peakYearLabel(dates, firstTs, lastTs) {
     if (!dates || dates.length < 3) return null;
     const sorted = [...dates].sort((a,b) => a-b);
     const spanDays = (sorted[sorted.length-1] - sorted[0]) / 86400000;
@@ -3228,7 +3230,10 @@ function renderOneHit() {
     for (const d of dates) yearCounts[d.getFullYear()] = (yearCounts[d.getFullYear()] || 0) + 1;
     const topYear = Object.entries(yearCounts).sort((a,b) => b[1]-a[1])[0];
     if (topYear[1] / dates.length >= 0.9) return `This was a ${topYear[0]} thing.`;
-    return 'This one has lasted.';
+    const years = firstTs && lastTs ? Math.floor((lastTs - firstTs) / (365.25 * 24 * 3600 * 1000)) : 0;
+    return years >= 1
+      ? `You've carried this one for ${years} year${years !== 1 ? 's' : ''}.`
+      : "You've carried this one for less than a year.";
   }
 
   let html = `
@@ -3246,7 +3251,7 @@ function renderOneHit() {
       ? `You've played &ldquo;${escHtml(r.topTrack)}&rdquo; ${fmtNum(r.topTrackPlays)} times. You've played everything else by ${escHtml(r.artist)} a combined ${fmtNum(otherPlays)} time${otherPlays !== 1 ? 's' : ''}. You don't like ${escHtml(r.artist)}. You like that one moment.`
       : `You've played &ldquo;${escHtml(r.topTrack)}&rdquo; ${fmtNum(r.topTrackPlays)} times. You've never touched another ${escHtml(r.artist)} song. You don't like ${escHtml(r.artist)}. You like that one moment.`;
     const trackDates = artistTrackDates[r.artist]?.[r.topTrack] || [];
-    const peakLabel = peakYearLabel(trackDates);
+    const peakLabel = peakYearLabel(trackDates, r.firstTs, r.lastTs);
     const hiddenCls = i >= 5 ? ' class="show-more-item"' : '';
     const CIRC = 175.93;
     const finalOffset = (CIRC * (1 - pct / 100)).toFixed(2);
