@@ -1604,6 +1604,26 @@ function animateGauges(container) {
   }, 100);
 }
 
+function animateHooked(container) {
+  setTimeout(() => {
+    container.querySelectorAll('.hooked-bar').forEach(bar => {
+      bar.style.width = bar.dataset.final + '%';
+    });
+    container.querySelectorAll('.hooked-count').forEach(el => {
+      const target = parseInt(el.dataset.final, 10);
+      const duration = 600;
+      const t0 = performance.now();
+      function frame(now) {
+        const t = Math.min((now - t0) / duration, 1);
+        const ease = 1 - Math.pow(1 - t, 3);
+        el.textContent = Math.round(ease * target) + '%';
+        if (t < 1) requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    });
+  }, 80);
+}
+
 function animateDonuts(container) {
   setTimeout(() => {
     container.querySelectorAll('.ohw-donut-fill').forEach(circle => {
@@ -2197,36 +2217,30 @@ function renderHooked() {
   const gatewayDateStr = gateway ? gateway.firstTs.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : null;
 
   // ── Build HTML ──
-  // Semicircular arc gauges: stroke-dasharray/dashoffset drives the fill, animated by animateGauges()
   let contrastHtml = '';
   if (intentPct !== null && autoPct !== null) {
-    const GAUGE_R   = 80;                         // radius of the arc path
-    const ARC_LEN   = (Math.PI * GAUGE_R).toFixed(2); // total semicircle length ≈ 251.33
-    const arcPath   = `M 20 100 A ${GAUGE_R} ${GAUGE_R} 0 0 0 180 100`;
-    const autoColor = autoPct > intentPct ? 'rgba(30,215,96,1.0)' : 'rgba(29,185,84,0.6)';
-
-    function makeGauge(pct, fillColor, label) {
-      const finalOffset = (Math.PI * GAUGE_R * (1 - pct / 100)).toFixed(2);
-      return `
-        <div style="display:flex;flex-direction:column;align-items:center">
-          <svg viewBox="0 0 200 110" style="width:100%;max-width:200px">
-            <path d="${arcPath}" fill="none" stroke="var(--border)" stroke-width="12" stroke-linecap="round"/>
-            <path d="${arcPath}" fill="none" stroke="${fillColor}" stroke-width="12" stroke-linecap="round"
-              class="gauge-fill"
-              style="stroke-dasharray:${ARC_LEN};stroke-dashoffset:${ARC_LEN};transition:stroke-dashoffset 700ms cubic-bezier(0.4,0,0.2,1)"
-              data-final-offset="${finalOffset}"/>
-            <text x="100" y="72" text-anchor="middle" dominant-baseline="middle"
-              font-family="'Fraunces',serif" font-size="36" font-weight="700" fill="var(--text)">${pct}%</text>
-          </svg>
-          <div style="font-size:0.75rem;color:var(--text3);margin-top:4px;text-align:center;line-height:1.4">${label}</div>
-        </div>`;
-    }
+    const autoBarColor = autoPct > intentPct ? 'rgba(76,175,125,1.0)' : 'rgba(76,175,125,0.4)';
 
     contrastHtml = `
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:28px 32px;margin-bottom:32px">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:20px">
-          ${makeGauge(intentPct, 'rgba(29,185,84,0.6)', 'When you chose it')}
-          ${makeGauge(autoPct,   autoColor,             'When it just came on')}
+        <div style="display:grid;grid-template-columns:1fr 1px 1fr;gap:0;margin-bottom:20px">
+          <div style="padding-right:28px;text-align:center">
+            <div class="hooked-count" data-final="${intentPct}" style="font-family:'Fraunces',serif;font-size:64px;font-weight:700;color:var(--text);line-height:1;margin-bottom:14px">0%</div>
+            <div style="height:12px;border-radius:6px;background:var(--border);overflow:hidden;margin-bottom:12px">
+              <div class="hooked-bar" data-final="${intentPct}" style="height:100%;width:0%;border-radius:6px;background:rgba(76,175,125,0.6);transition:width 600ms cubic-bezier(0.4,0,0.2,1)"></div>
+            </div>
+            <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);margin-bottom:4px">WHEN YOU CHOSE IT</div>
+            <div style="font-size:0.75rem;color:var(--text3)">of intentional listens finished</div>
+          </div>
+          <div style="background:var(--border)"></div>
+          <div style="padding-left:28px;text-align:center">
+            <div class="hooked-count" data-final="${autoPct}" style="font-family:'Fraunces',serif;font-size:64px;font-weight:700;color:var(--text);line-height:1;margin-bottom:14px">0%</div>
+            <div style="height:12px;border-radius:6px;background:var(--border);overflow:hidden;margin-bottom:12px">
+              <div class="hooked-bar" data-final="${autoPct}" style="height:100%;width:0%;border-radius:6px;background:${autoBarColor};transition:width 600ms cubic-bezier(0.4,0,0.2,1)"></div>
+            </div>
+            <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);margin-bottom:4px">WHEN IT JUST CAME ON</div>
+            <div style="font-size:0.75rem;color:var(--text3)">of autoplay listens finished</div>
+          </div>
         </div>
         <div style="border-top:1px solid var(--border);padding-top:16px;font-size:0.88rem;color:var(--text2);line-height:1.5;font-style:italic">${contrastVerdict}</div>
       </div>`;
@@ -2281,7 +2295,7 @@ function renderHooked() {
   el.innerHTML = html;
   el.innerHTML += toolVerdict(hkVerdict);
   animateBars(el);
-  animateGauges(el);
+  animateHooked(el);
 }
 
 /* ═══════════════════════════════════════════
