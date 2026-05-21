@@ -4591,7 +4591,32 @@ function renderPersonality() {
     }
   }
 
-  const radarScores = [radarCompletion, radarDiscovery, radarDepth, radarConsistency];
+  // 5. Loyalty — % of top-10 artists listened to in consecutive year pairs
+  let radarLoyalty = 50;
+  {
+    const artistYears = {};
+    for (const r of State.music) {
+      const a = r.master_metadata_album_artist_name;
+      if (!a) continue;
+      const yr = r.ts.slice(0, 4);
+      if (!artistYears[a]) artistYears[a] = new Set();
+      artistYears[a].add(yr);
+    }
+    const topArtists = Object.entries(artistYears)
+      .map(([name, yrs]) => ({ name, yrs: [...yrs].sort() }))
+      .sort((a, b) => b.yrs.length - a.yrs.length)
+      .slice(0, 10);
+    let consecutive = 0, possible = 0;
+    for (const { yrs } of topArtists) {
+      for (let i = 1; i < yrs.length; i++) {
+        possible++;
+        if (parseInt(yrs[i]) - parseInt(yrs[i - 1]) === 1) consecutive++;
+      }
+    }
+    radarLoyalty = possible > 0 ? Math.round(consecutive / possible * 100) : 50;
+  }
+
+  const radarScores = [radarCompletion, radarLoyalty, radarDiscovery, radarDepth, radarConsistency];
 
   // Monthly listening trend (last 24 months)
   const monthlyTrend = (() => {
@@ -4728,8 +4753,8 @@ function renderPersonality() {
 
   // ── Radar Chart HTML ──
   const radarHtml = (() => {
-    const labels = ['Completion', 'Discovery', 'Depth', 'Consistency'];
-    const N = 4, CX = 130, CY = 130, R = 90;
+    const labels = ['Completion', 'Loyalty', 'Discovery', 'Depth', 'Consistency'];
+    const N = 5, CX = 150, CY = 150, R = 90;
     const angles = Array.from({length: N}, (_, k) => -Math.PI/2 + k * 2*Math.PI/N);
     const pt = (r, a) => [CX + r*Math.cos(a), CY + r*Math.sin(a)];
     const pentPath = f => angles.map((a,i) => { const [x,y]=pt(R*f,a); return `${i?'L':'M'} ${x.toFixed(1)},${y.toFixed(1)}`; }).join(' ') + ' Z';
@@ -4737,14 +4762,14 @@ function renderPersonality() {
     const grids = [0.25,0.5,0.75,1].map(f => `<path d="${pentPath(f)}" fill="none" stroke="var(--border)" stroke-width="1"/>`).join('');
     const axes = angles.map(a => { const [x,y]=pt(R,a); return `<line x1="${CX}" y1="${CY}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="1"/>`; }).join('');
     const lbls = angles.map((a,i) => {
-      const [x,y] = pt(R+20, a);
+      const [x,y] = pt(R+28, a);
       const cos = Math.cos(a);
       const anchor = cos > 0.3 ? 'start' : cos < -0.3 ? 'end' : 'middle';
       return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}" dominant-baseline="middle" font-size="10" fill="var(--text3)" font-family="Space Grotesk,sans-serif">${labels[i]}</text>`;
     }).join('');
     const dots = angles.map((a,i) => { const [x,y]=pt(R*Math.min(radarScores[i],100)/100,a); return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" fill="var(--accent)" opacity="0" class="radar-dot"/>`; }).join('');
     const centerPath = `M ${CX},${CY} ` + Array(N-1).fill(`L ${CX},${CY}`).join(' ') + ' Z';
-    const svg = `<svg width="260" height="260" viewBox="0 0 260 260" style="display:block;margin:0 auto;max-width:100%">${grids}${axes}<path id="radar-polygon" d="${centerPath}" fill="rgba(29,185,84,0.25)" stroke="rgba(29,185,84,0.8)" stroke-width="2" stroke-linejoin="round" data-final-path="${scorePath}"/>${dots}${lbls}</svg>`;
+    const svg = `<svg width="300" height="300" viewBox="0 0 300 300" style="display:block;margin:0 auto;max-width:100%;overflow:visible">${grids}${axes}<path id="radar-polygon" d="${centerPath}" fill="rgba(29,185,84,0.25)" stroke="rgba(29,185,84,0.8)" stroke-width="2" stroke-linejoin="round" data-final-path="${scorePath}"/>${dots}${lbls}</svg>`;
     const consDesc = radarConsistency >= 80 ? 'almost every day'
       : radarConsistency >= 60 ? 'on most days'
       : radarConsistency >= 40 ? 'several times a week'
@@ -4752,6 +4777,7 @@ function renderPersonality() {
       : 'in occasional bursts';
     const legendDefs = [
       ['Completion',  radarCompletion,  `You finish ${radarCompletion}% of what you start.`],
+      ['Loyalty',     radarLoyalty,     `${radarLoyalty}% of your top artists recur in back-to-back years.`],
       ['Discovery',   radarDiscovery,   `${radarDiscovery}% of your listening starts from autoplay — you're open to being surprised.`],
       ['Depth',       radarDepth,       `You go beyond the hits ${radarDepth}% of the time.`],
       ['Consistency', radarConsistency, `You listen ${consDesc}.`],
