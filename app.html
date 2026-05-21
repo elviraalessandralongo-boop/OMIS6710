@@ -3781,8 +3781,12 @@ function renderForgotten(windowIdx = 0) {
     </li>`;
   }
 
+  const jumpWorthHtml = worthRevisiting.length ? `<button class="toggle-btn" onclick="document.getElementById('fg-worth-header').scrollIntoView({behavior:'smooth'});setTimeout(()=>window.scrollBy(0,-80),10)">⬇ Worth Revisiting — ${worthRevisiting.length} song${worthRevisiting.length !== 1 ? 's' : ''}</button>` : '';
+  const jumpCutHtml   = safeToCut.length      ? `<button class="toggle-btn" onclick="document.getElementById('fg-cut-header').scrollIntoView({behavior:'smooth'});setTimeout(()=>window.scrollBy(0,-80),10)">⬇ Safe to Let Go — ${safeToCut.length} song${safeToCut.length !== 1 ? 's' : ''}</button>` : '';
+
   let html = `
     <div class="toggle-row">${toggleHtml}</div>
+    ${jumpWorthHtml || jumpCutHtml ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">${jumpWorthHtml}${jumpCutHtml}</div>` : ''}
     ${heroStatement(`You've abandoned <em>${results.length} songs</em> that you once played on repeat. Some of them are worth finding again — your past self knew something.`)}
     <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
       <button onclick="downloadForgottenCSV()" style="padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:'Space Grotesk',sans-serif;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent2)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">↓ Export CSV</button>
@@ -3791,7 +3795,7 @@ function renderForgotten(windowIdx = 0) {
     <p style="font-size:0.78rem;color:var(--text3);margin:0 0 14px;line-height:1.5">Songs you used to play regularly but haven't touched in a while. Sorted by how long they've been dormant.</p>`;
 
   if (worthRevisiting.length) {
-    html += `<div class="forgotten-section-header">Worth Revisiting — ${worthRevisiting.length} song${worthRevisiting.length !== 1 ? 's' : ''} with 20+ plays</div>
+    html += `<div id="fg-worth-header" class="forgotten-section-header">Worth Revisiting — ${worthRevisiting.length} song${worthRevisiting.length !== 1 ? 's' : ''} with 20+ plays</div>
     <ul class="result-list forgotten-worth">`;
     worthRevisiting.forEach((r, i) => { html += fgRow(r, i, maxDaysSince, i >= 5); });
     html += '</ul>';
@@ -3799,7 +3803,7 @@ function renderForgotten(windowIdx = 0) {
   }
 
   if (safeToCut.length) {
-    html += `<div class="forgotten-section-header" style="margin-top:${worthRevisiting.length ? '32px' : '0'}">Safe to Let Go — ${safeToCut.length} song${safeToCut.length !== 1 ? 's' : ''} with under 20 plays</div>
+    html += `<div id="fg-cut-header" class="forgotten-section-header" style="margin-top:${worthRevisiting.length ? '32px' : '0'}">Safe to Let Go — ${safeToCut.length} song${safeToCut.length !== 1 ? 's' : ''} with under 20 plays</div>
     <ul class="result-list forgotten-cut">`;
     safeToCut.forEach((r, i) => { html += fgRow(r, i, maxDaysSince, i >= 5); });
     html += '</ul>';
