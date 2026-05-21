@@ -2382,8 +2382,12 @@ function renderBinge(windowIdx = 3) {
   )[0];
   const longestSessionMs = longestSession ? longestSession.reduce((t,r)=>t+(r.ms_played||0),0) : 0;
   const longestSessionH = Math.round(longestSessionMs / 3600000 * 10) / 10;
-  const longestSessionStart = longestSession ? new Date(new Date(longestSession[0].ts).getTime() - (longestSession[0].ms_played||0)) : null;
-  const longestSessionDay = longestSessionStart ? longestSessionStart.toLocaleDateString('en-US',{weekday:'long'}) : '';
+  const longestSessionStart = longestSession
+    ? tsToLocal(new Date(new Date(longestSession[0].ts).getTime() - (longestSession[0].ms_played||0)).toISOString())
+    : null;
+  const longestSessionDate = longestSessionStart
+    ? longestSessionStart.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric', year:'numeric'})
+    : '';
   const longestSessionEps = longestSession ? longestSession.length : 0;
 
   // ── Show-count per show across sessions ──
@@ -2445,6 +2449,7 @@ function renderBinge(windowIdx = 3) {
         ${escHtml(bigDayDate)} — <span style="color:var(--accent2)">${bigDayTotalH}h</span> of listening.
       </div>
       ${bigDayTop3.length ? `<div style="font-size:0.78rem;color:var(--text3);margin-top:10px;font-style:italic">Here's what was playing: ${bigDayTop3.map(n=>`<strong style="color:var(--text2)">${escHtml(n)}</strong>`).join(', ')}</div>` : ''}
+      <div style="font-size:0.7rem;color:var(--text3);margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">Total listening across the full day, including breaks.</div>
     </div>` : '';
 
   // ── Binge Calendar Heatmap ──
@@ -2548,7 +2553,8 @@ function renderBinge(windowIdx = 3) {
   let html = `
     ${bigDayHtml}
     <div class="toggle-row">${toggleHtml}</div>
-    ${heroStatement(`Your longest rabbit hole was <em>${longestSessionH} hours on a ${escHtml(longestSessionDay)}</em>. You listened to <em>${longestSessionEps} episodes</em> back to back — and then, eventually, you surfaced.`)}
+    ${heroStatement(`Your longest rabbit hole was <em>${longestSessionH} hours on ${escHtml(longestSessionDate)}</em>. You listened to <em>${longestSessionEps} episodes</em> back to back — and then, eventually, you surfaced.`)}
+    <div style="font-size:0.7rem;color:var(--text3);margin-top:-12px;margin-bottom:28px;font-style:italic">Consecutive listening — no breaks over 30 minutes.</div>
     ${bingeCalendarHtml}
     <div class="evidence-section">
       <div class="evidence-label">The evidence</div>
