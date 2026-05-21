@@ -1742,7 +1742,8 @@ function initLandingDonut(container) {
       if (!cat || !cat.slices.length) return;
       let deg = -90;
       cat.slices.forEach((s, i) => {
-        const end = deg + s.pct / 100 * 360;
+        const visualPct = Math.max(5, s.pct);
+        const end = deg + visualPct / 100 * 360;
         const p = makePath(arcD(deg, end), green(OPACITIES[i] ?? 0.3), animate, i * 60);
         p.addEventListener('mouseenter', e => showTip(e, `${s.name} · ${s.pct}%`));
         p.addEventListener('mousemove',  moveTip);
@@ -1751,7 +1752,8 @@ function initLandingDonut(container) {
         deg = end;
       });
 
-      centerEl.innerHTML = `<div style="font-size:0.62rem;font-weight:700;color:var(--text);white-space:nowrap">${view === 'music' ? 'Music' : 'Podcasts'}</div><div style="font-size:0.75rem;color:var(--text3)">${cat.total_h}h total</div>`;
+      const catLabel = view === 'music' ? 'music' : 'podcasts';
+      centerEl.innerHTML = `<div style="font-size:0.62rem;font-weight:700;color:var(--text);white-space:nowrap">${view === 'music' ? 'Music' : 'Podcasts'}</div><div style="font-size:0.72rem;color:var(--text3)">${fmtNum(cat.total_h)}h ${catLabel}</div>`;
 
       legendEl.innerHTML = '';
       const back = document.createElement('div');
@@ -5205,7 +5207,9 @@ function renderHome() {
       if (a) artistMsMap[a] = (artistMsMap[a] || 0) + (r.ms_played || 0);
     }
     const top4Artists = Object.entries(artistMsMap).sort((a,b) => b[1]-a[1]).slice(0, 4);
-    const top4ArtistSlices = musicMs > 0 ? top4Artists.map(([name, ms]) => ({ name, pct: Math.round(ms / musicMs * 100) })) : [];
+    const top4ArtistSlices = musicMs > 0
+      ? top4Artists.map(([name, ms]) => ({ name, pct: Math.round(ms / musicMs * 1000) / 10 }))
+      : [];
 
     // Top 4 shows by listening time
     const showMsMap = {};
@@ -5214,7 +5218,9 @@ function renderHome() {
       if (s) showMsMap[s] = (showMsMap[s] || 0) + (r.ms_played || 0);
     }
     const top4Shows = Object.entries(showMsMap).sort((a,b) => b[1]-a[1]).slice(0, 4);
-    const top4ShowSlices = podMs > 0 ? top4Shows.map(([name, ms]) => ({ name, pct: Math.round(ms / podMs * 100) })) : [];
+    const top4ShowSlices = podMs > 0
+      ? top4Shows.map(([name, ms]) => ({ name, pct: Math.round(ms / podMs * 1000) / 10 }))
+      : [];
 
     const donutData = {
       music_dominant: musicDominant,
