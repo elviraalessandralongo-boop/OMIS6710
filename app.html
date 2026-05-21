@@ -3280,20 +3280,28 @@ function renderPeakObsession() {
     return { label: 'A Phase', color: '#6ec97d', bg: 'rgba(110,201,125,0.12)' };
   }
 
-  // Days from peak window end to first zero 2-week window afterward
-  function speedToZero(tsMs, peakWindowEnd) {
+  // Days from peak window end to first 14-day window (after the peak) with ≤10% of peak plays.
+  // Returns null when no such window is found — meaning the song is still going strong.
+  function speedToZero(tsMs, peakWindowEnd, peakCount) {
     if (!peakWindowEnd) return null;
+    const threshold = Math.floor(peakCount * 0.1);
     const afterPeak = tsMs.filter(t => t > peakWindowEnd);
-    if (!afterPeak.length) return 0;
+    // No plays after peak → the very first post-peak window is empty
+    if (!afterPeak.length) return 1;
     const lastTs = afterPeak[afterPeak.length - 1];
-    let t = peakWindowEnd;
+    // Slide a 14-day window one day at a time, strictly after the peak ends.
+    // Two-pointer keeps each iteration O(1) amortised.
+    let lo = 0, hi = 0;
+    let t = peakWindowEnd + 86400000; // day immediately after peak window ends
     while (t <= lastTs + WIN2W) {
-      if (afterPeak.filter(p => p >= t && p < t + WIN2W).length === 0) {
+      while (lo < afterPeak.length && afterPeak[lo] < t) lo++;
+      while (hi < afterPeak.length && afterPeak[hi] < t + WIN2W) hi++;
+      if (hi - lo <= threshold) {
         return Math.round((t - peakWindowEnd) / 86400000);
       }
-      t += WIN2W;
+      t += 86400000;
     }
-    return null; // never dropped to zero
+    return null; // still going strong — never dropped to near-zero
   }
 
   // Hidden Constant: most consistent + longest span + still recently played (all tracks)
@@ -3339,6 +3347,7 @@ function renderPeakObsession() {
 
     const recentPlays = dates.filter(d => d >= thirtyDaysAgo).length;
     const dropOff = peakCount - recentPlays;
+    const dropPct  = peakCount > 0 ? Math.round((peakCount - recentPlays) / peakCount * 100) : 0;
 
     // Build weekly histogram for sparkline
     const weeks = {};
@@ -3349,8 +3358,8 @@ function renderPeakObsession() {
 
     const lastPlayed = dates[dates.length - 1];
     const shape = classifyShape(tsMs, totalPlays);
-    const speedDays = speedToZero(tsMs, peakWindowEnd);
-    results.push({ artist, track, totalPlays, peakCount, peakDate, recentPlays, dropOff, weeks, lastPlayed, shape, speedDays });
+    const speedDays = speedToZero(tsMs, peakWindowEnd, peakCount);
+    results.push({ artist, track, totalPlays, peakCount, peakDate, recentPlays, dropOff, dropPct, weeks, lastPlayed, shape, speedDays });
   }
   results.sort((a,b) => b.lastPlayed - a.lastPlayed);
 
@@ -3414,8 +3423,17 @@ function renderPeakObsession() {
       ? ` <span style="display:inline-block;font-size:0.62rem;font-weight:700;letter-spacing:0.06em;padding:2px 8px;border-radius:20px;background:${r.shape.bg};color:${r.shape.color};vertical-align:middle">${r.shape.label.toUpperCase()}</span>`
       : '';
     const speedLine = r.speedDays !== null
-      ? `<div style="font-size:0.75rem;color:var(--text3);margin-top:5px;font-style:italic">Peak to near-zero in ${r.speedDays} day${r.speedDays !== 1 ? 's' : ''}.</div>`
-      : '';
+      ? `<div style="font-size:0.75rem;color:${r.speedDays < 14 ? 'var(--amber)' : r.speedDays <= 60 ? 'var(--text3)' : 'var(--accent)'};margin-top:5px;font-style:italic">Peak to near-zero in ${r.speedDays} day${r.speedDays !== 1 ? 's' : ''}.</div>`
+      : `<div style="font-size:0.75rem;color:var(--accent2);margin-top:5px;font-style:italic">Still going strong.</div>`;
+    const dropText = r.recentPlays > r.peakCount
+      ? `<span style="color:var(--accent2)">having a revival</span>`
+      : r.dropPct > 90
+      ? `<span style="color:var(--text3)">virtually disappeared</span>`
+      : r.dropPct >= 60
+      ? `<span style="color:var(--text3)">${r.dropPct}% quieter than your peak</span>`
+      : r.dropPct >= 30
+      ? `<span style="color:var(--text3)">still in rotation, just less</span>`
+      : `<span style="color:var(--accent2)">still close to your peak</span>`;
     html += `<li${hiddenCls}>
       <div class="result-num">${i+1}</div>
       <div class="result-body">
@@ -3429,7 +3447,7 @@ function renderPeakObsession() {
           <div class="result-stats">
             <span class="result-stat">Peak month: <strong>${r.peakCount} plays</strong></span>
             <span class="result-stat">Last 30 days: <strong>${r.recentPlays}</strong></span>
-            <span class="result-stat">Drop: <strong style="color:var(--red)">−${r.dropOff}</strong></span>
+            <span class="result-stat">${dropText}</span>
           </div>
         </div>
       </div>
