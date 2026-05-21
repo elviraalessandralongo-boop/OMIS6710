@@ -1637,6 +1637,27 @@ function animateLandingVisuals(container) {
     container.querySelectorAll('.landing-year-bar').forEach(bar => {
       bar.style.width = bar.dataset.finalWidth;
     });
+    // Year bar tooltips
+    let yrTip = document.getElementById('landing-yr-tip');
+    if (!yrTip) {
+      yrTip = document.createElement('div');
+      yrTip.id = 'landing-yr-tip';
+      yrTip.style.cssText = 'position:fixed;pointer-events:none;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:0.75rem;color:var(--text);line-height:1.5;white-space:nowrap;opacity:0;transition:opacity 0.1s ease;z-index:9999';
+      document.body.appendChild(yrTip);
+    }
+    container.querySelectorAll('.landing-year-bar[data-yr-tip]').forEach(bar => {
+      bar.style.cursor = 'default';
+      bar.addEventListener('mouseenter', () => { yrTip.textContent = bar.dataset.yrTip; yrTip.style.opacity = '1'; });
+      bar.addEventListener('mousemove', e => {
+        const tw = yrTip.offsetWidth || 260, th = yrTip.offsetHeight || 36;
+        let tx = e.clientX + 14, ty = e.clientY - 42;
+        if (tx + tw > window.innerWidth  - 8) tx = e.clientX - tw - 14;
+        if (ty < 8)                           ty = e.clientY + 14;
+        if (ty + th > window.innerHeight - 8) ty = window.innerHeight - th - 8;
+        yrTip.style.left = tx + 'px'; yrTip.style.top = ty + 'px';
+      });
+      bar.addEventListener('mouseleave', () => { yrTip.style.opacity = '0'; });
+    });
   }, 80);
 }
 
@@ -5257,33 +5278,65 @@ function renderHome() {
   // ── Visual 2: Yearly timeline bars ──
   let landingTimelineHtml = '';
   {
-    const yrMs = {};
-    for (const r of [...State.music, ...State.podcasts]) {
+    const yrMs = {}, yrMusicMs = {}, yrPodMs = {};
+    for (const r of State.music) {
       if (!r.ts) continue;
       const yr = r.ts.slice(0,4);
-      yrMs[yr] = (yrMs[yr] || 0) + (r.ms_played || 0);
+      yrMs[yr]      = (yrMs[yr]      || 0) + (r.ms_played || 0);
+      yrMusicMs[yr] = (yrMusicMs[yr] || 0) + (r.ms_played || 0);
+    }
+    for (const r of State.podcasts) {
+      if (!r.ts) continue;
+      const yr = r.ts.slice(0,4);
+      yrMs[yr]    = (yrMs[yr]    || 0) + (r.ms_played || 0);
+      yrPodMs[yr] = (yrPodMs[yr] || 0) + (r.ms_played || 0);
     }
     const yrKeys = Object.keys(yrMs).sort();
     if (yrKeys.length >= 2) {
-      const maxYrMs = Math.max(...Object.values(yrMs));
-      const peakYr  = Object.entries(yrMs).sort((a,b) => b[1]-a[1])[0][0];
+      const maxYrMs  = Math.max(...Object.values(yrMs));
+      const peakYr   = Object.entries(yrMs).sort((a,b) => b[1]-a[1])[0][0];
       const latestYr = yrKeys[yrKeys.length - 1];
+      const currentYr = String(new Date().getFullYear());
+      const isPartial = latestYr === currentYr;
       const MAX_W = 80, MIN_W = 5;
       const bars = yrKeys.map((yr, i) => {
-        const pct  = yrMs[yr] / maxYrMs;
-        const barW = Math.max(MIN_W, Math.round(pct * MAX_W));
+        const pct    = yrMs[yr] / maxYrMs;
+        const barW   = Math.max(MIN_W, Math.round(pct * MAX_W));
         const isLatest = yr === latestYr;
         const isPeak   = yr === peakYr;
-        const color = isLatest ? 'var(--accent2)' : 'rgba(29,185,84,0.65)';
+        const color    = isLatest ? 'var(--accent2)' : 'rgba(29,185,84,0.65)';
+        const totalH   = Math.round(yrMs[yr]      / 3600000);
+        const musicH   = Math.round((yrMusicMs[yr] || 0) / 3600000);
+        const podH     = Math.round((yrPodMs[yr]   || 0) / 3600000);
+        const tipText  = `${yr}${isLatest && isPartial ? '*' : ''} — ${fmtNum(totalH)}h total (${fmtNum(musicH)}h music, ${fmtNum(podH)}h podcasts)`;
+        const showLabel = barW >= 20;
+        const yrLabel  = yr + (isLatest && isPartial ? '*' : '');
         return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px">
           <div style="font-size:0.55rem;color:var(--accent2);height:14px;display:flex;align-items:center;white-space:nowrap">${isPeak ? 'Peak year' : ''}</div>
           <div class="landing-year-bar"
-               style="width:0;height:32px;background:${color};border-radius:2px;transition:width 600ms ease ${i*60}ms"
-               data-final-width="${barW}px"></div>
-          <div style="font-size:0.58rem;color:var(--text3);white-space:nowrap">${yr}</div>
+               style="width:0;height:32px;background:${color};border-radius:2px;transition:width 600ms ease ${i*60}ms;position:relative"
+               data-final-width="${barW}px"
+               data-yr-tip="${escHtml(tipText)}">
+            ${showLabel ? `<div style="position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:0.55rem;color:var(--text3);white-space:nowrap;pointer-events:none">${fmtNum(totalH)}</div>` : ''}
+          </div>
+          <div style="font-size:0.58rem;color:var(--text3);white-space:nowrap">${yrLabel}</div>
         </div>`;
       }).join('');
-      landingTimelineHtml = `<div style="overflow-x:auto;flex:1;min-width:0"><div style="display:flex;gap:4px;align-items:flex-start;padding-bottom:2px;min-width:max-content">${bars}</div></div>`;
+      const partialNote = isPartial
+        ? `<div style="font-size:0.62rem;color:var(--text3);margin-top:6px">* ${latestYr} is a partial year</div>`
+        : '';
+      landingTimelineHtml = `
+        <div style="display:flex;flex-direction:column;gap:0">
+          <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin-bottom:2px">Total listening hours per year</div>
+          <div style="font-size:0.62rem;color:var(--text3);margin-bottom:10px">Music and podcasts combined</div>
+          <div style="display:flex;align-items:flex-end;gap:6px">
+            <div style="font-size:0.55rem;color:var(--text3);writing-mode:vertical-rl;transform:rotate(180deg);letter-spacing:0.08em;padding-bottom:18px;flex-shrink:0">Hours</div>
+            <div style="overflow-x:auto;flex:1;min-width:0">
+              <div style="display:flex;gap:4px;align-items:flex-end;padding-bottom:2px;padding-top:18px;min-width:max-content">${bars}</div>
+            </div>
+          </div>
+          ${partialNote}
+        </div>`;
     }
   }
 
