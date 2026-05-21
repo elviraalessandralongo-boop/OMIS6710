@@ -1856,8 +1856,21 @@ function emptyState(icon, title, desc) {
 /* ── PROGRESSIVE DISCLOSURE HELPERS ── */
 function revealMore(btn) {
   const list = btn.previousElementSibling;
-  list.querySelectorAll('.show-more-item').forEach(el => { el.style.display = ''; });
-  btn.remove();
+
+  if (btn.textContent.trim() === 'Show less') {
+    // Collapse back to 5
+    [...list.querySelectorAll('li')].forEach((li, i) => {
+      if (i >= 5) li.classList.add('show-more-item');
+    });
+    btn.textContent = `Show ${list.querySelectorAll('li').length - 5} more`;
+    return;
+  }
+
+  // Reveal next 10
+  const hidden = [...list.querySelectorAll('.show-more-item')];
+  hidden.slice(0, 10).forEach(li => li.classList.remove('show-more-item'));
+  const remaining = hidden.length - 10;
+  btn.textContent = remaining > 0 ? `Show ${remaining} more` : 'Show less';
 }
 
 function toggleDetails(btn) {
