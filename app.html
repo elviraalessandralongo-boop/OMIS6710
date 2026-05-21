@@ -5072,20 +5072,27 @@ function renderHome() {
     const mLen = (parseFloat(C) * mPct).toFixed(2);
     const pLen = (parseFloat(C) * pPct).toFixed(2);
     const pRotate = (-90 + mPct * 360).toFixed(2);
-    const dominant = mPct >= pPct ? 'Music' : 'Podcasts';
-    const dominantPct = mPct >= pPct ? mPctR : pPctR;
-    const mLegend = mPctR > 0 ? `<div style="display:flex;align-items:center;gap:7px"><div style="width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0"></div><span style="font-size:0.75rem;color:var(--text2)">Music <strong>${mPctR}%</strong></span></div>` : '';
-    const pLegend = pPctR > 0 ? `<div style="display:flex;align-items:center;gap:7px"><div style="width:8px;height:8px;border-radius:50%;background:rgba(29,185,84,0.35);flex-shrink:0"></div><span style="font-size:0.75rem;color:var(--text3)">Podcasts <strong>${pPctR}%</strong></span></div>` : '';
+    const musicDominant = mPct >= pPct;
+    const dominant = musicDominant ? 'Music' : 'Podcasts';
+    const dominantPct = musicDominant ? mPctR : pPctR;
+    const mColor = musicDominant ? 'var(--accent2)' : 'rgba(76,175,125,0.25)';
+    const pColor = musicDominant ? 'rgba(76,175,125,0.25)' : 'var(--accent2)';
+    const mDotColor = musicDominant ? 'var(--accent2)' : 'rgba(76,175,125,0.25)';
+    const pDotColor = musicDominant ? 'rgba(76,175,125,0.25)' : 'var(--accent2)';
+    const mTextColor = musicDominant ? 'var(--text2)' : 'var(--text3)';
+    const pTextColor = musicDominant ? 'var(--text3)' : 'var(--text2)';
+    const mLegend = mPctR > 0 ? `<div style="display:flex;align-items:center;gap:7px"><div style="width:8px;height:8px;border-radius:50%;background:${mDotColor};flex-shrink:0"></div><span style="font-size:0.75rem;color:${mTextColor}">Music <strong>${mPctR}%</strong></span></div>` : '';
+    const pLegend = pPctR > 0 ? `<div style="display:flex;align-items:center;gap:7px"><div style="width:8px;height:8px;border-radius:50%;background:${pDotColor};flex-shrink:0"></div><span style="font-size:0.75rem;color:${pTextColor}">Podcasts <strong>${pPctR}%</strong></span></div>` : '';
     landingDonutHtml = `
       <div style="display:flex;align-items:center;gap:16px;flex-shrink:0">
         <div style="position:relative;flex-shrink:0">
           <svg width="120" height="120" viewBox="0 0 120 120" style="display:block">
             <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="var(--border)" stroke-width="${SW}"/>
-            <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="var(--accent)" stroke-width="${SW}"
+            <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${mColor}" stroke-width="${SW}"
                     stroke-dasharray="0 ${C}" stroke-linecap="butt"
                     transform="rotate(-90 ${CX} ${CY})"
                     class="landing-donut-arc" data-final-seg="${mLen}" data-circ="${C}"/>
-            <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="rgba(29,185,84,0.35)" stroke-width="${SW}"
+            <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${pColor}" stroke-width="${SW}"
                     stroke-dasharray="0 ${C}" stroke-linecap="butt"
                     transform="rotate(${pRotate} ${CX} ${CY})"
                     class="landing-donut-arc" data-final-seg="${pLen}" data-circ="${C}"/>
@@ -5227,7 +5234,6 @@ function renderHome() {
         You've given <span style="color:var(--accent2)">${fmtNum(totalH)} hours</span> of your life to music and podcasts${yr0 ? ` since ${yr0}` : ''}.<br>
         <span style="font-size:1.45rem;font-weight:300;font-style:italic;color:var(--text2)">Here's what that actually says about you.</span>
       </div>
-      <div style="font-size:0.82rem;color:var(--text3);margin-bottom:28px;font-style:italic">Spotify Wrapped tells you what you listened to. The Honest Listener tells you what it actually means.</div>
       ${landingVisualsHtml}
       ${biggerPictureHtml}
       ${startHereHtml}
