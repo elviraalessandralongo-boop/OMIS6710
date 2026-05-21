@@ -1633,18 +1633,149 @@ function animateDonuts(container) {
 
 function animateLandingVisuals(container) {
   setTimeout(() => {
-    // Donut arcs — set final stroke-dasharray via CSS transition
-    container.querySelectorAll('.landing-donut-arc').forEach(circle => {
-      const seg  = parseFloat(circle.dataset.finalSeg);
-      const circ = parseFloat(circle.dataset.circ);
-      circle.style.transition = 'stroke-dasharray 700ms ease';
-      circle.setAttribute('stroke-dasharray', `${seg} ${(circ - seg).toFixed(2)}`);
-    });
-    // Year bars — trigger CSS width transition
+    initLandingDonut(container);
     container.querySelectorAll('.landing-year-bar').forEach(bar => {
       bar.style.width = bar.dataset.finalWidth;
     });
   }, 80);
+}
+
+function initLandingDonut(container) {
+  const widget = container.querySelector('#landing-donut-widget');
+  if (!widget) return;
+  let data;
+  try { data = JSON.parse(widget.dataset.donut); } catch(e) { return; }
+
+  const svg      = widget.querySelector('#landing-donut-svg');
+  const centerEl = widget.querySelector('#landing-donut-center');
+  const legendEl = widget.querySelector('#landing-donut-legend');
+  const hintEl   = widget.querySelector('#landing-donut-hint');
+  if (!svg || !centerEl || !legendEl) return;
+
+  // Singleton tooltip
+  let tip = document.getElementById('ld-tip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'ld-tip';
+    tip.style.cssText = 'position:fixed;background:#1a1a1a;border:1px solid #333;border-radius:6px;padding:6px 10px;font-size:0.72rem;color:#e8e8f0;pointer-events:none;display:none;z-index:9999;white-space:nowrap;font-family:"Space Grotesk",sans-serif';
+    document.body.appendChild(tip);
+  }
+
+  const R = 44, CX = 60, CY = 60, SW = 14;
+  const OPACITIES = [1.0, 0.72, 0.5, 0.34];
+  const green = op => `rgba(76,175,125,${op})`;
+  let hintDone = false;
+
+  function arcD(sDeg, eDeg) {
+    const s = sDeg * Math.PI / 180, e = eDeg * Math.PI / 180;
+    const x1 = (CX + R * Math.cos(s)).toFixed(3), y1 = (CY + R * Math.sin(s)).toFixed(3);
+    const x2 = (CX + R * Math.cos(e)).toFixed(3), y2 = (CY + R * Math.sin(e)).toFixed(3);
+    return `M ${x1} ${y1} A ${R} ${R} 0 ${(eDeg - sDeg) > 180 ? 1 : 0} 1 ${x2} ${y2}`;
+  }
+
+  function showTip(e, text) { tip.textContent = text; tip.style.display = 'block'; moveTip(e); }
+  function moveTip(e) {
+    let x = e.clientX + 14, y = e.clientY - 10;
+    if (x + 180 > window.innerWidth)  x = e.clientX - 184;
+    if (y + 40  > window.innerHeight) y = e.clientY - 44;
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  }
+  function hideTip() { tip.style.display = 'none'; }
+
+  function dismissHint() {
+    if (hintDone || !hintEl) return;
+    hintDone = true;
+    hintEl.style.opacity = '0';
+    setTimeout(() => { if (hintEl) hintEl.style.display = 'none'; }, 300);
+  }
+
+  function makePath(d, stroke, animate, delay) {
+    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p.setAttribute('d', d); p.setAttribute('fill', 'none');
+    p.setAttribute('stroke', stroke); p.setAttribute('stroke-width', SW);
+    p.setAttribute('stroke-linecap', 'butt'); p.setAttribute('pathLength', '1');
+    p.classList.add('dslice');
+    p.setAttribute('stroke-dasharray', '1 1');
+    if (animate) {
+      p.setAttribute('stroke-dashoffset', '1');
+      requestAnimationFrame(() => {
+        p.style.transition = `stroke-dashoffset 400ms ease ${delay}ms`;
+        p.setAttribute('stroke-dashoffset', '0');
+      });
+    } else {
+      p.setAttribute('stroke-dashoffset', '0');
+    }
+    return p;
+  }
+
+  function renderView(view, animate) {
+    svg.querySelectorAll('.dslice').forEach(n => n.remove());
+
+    if (view === 'overview') {
+      let deg = -90;
+      data.overview.slices.filter(s => s.pct > 0).forEach((s, i) => {
+        const end = deg + s.pct / 100 * 360;
+        const isDOM = data.music_dominant ? s.name === 'Music' : s.name === 'Podcasts';
+        const p = makePath(arcD(deg, end), isDOM ? green(1.0) : green(0.25), animate, i * 80);
+        if (s.clickable) {
+          p.style.cursor = 'pointer';
+          p.addEventListener('click', () => drillDown(s.name.toLowerCase()));
+        }
+        svg.appendChild(p);
+        deg = end;
+      });
+
+      centerEl.innerHTML = `<div style="font-size:0.62rem;font-weight:700;color:var(--text);white-space:nowrap">${data.overview.center_label}</div><div style="font-size:0.9rem;font-weight:700;color:var(--accent2)">${data.overview.center_pct}%</div>`;
+
+      legendEl.innerHTML = '';
+      data.overview.slices.forEach(s => {
+        const isDOM = data.music_dominant ? s.name === 'Music' : s.name === 'Podcasts';
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:7px' + (s.clickable ? ';cursor:pointer' : '');
+        row.innerHTML = `<div style="width:8px;height:8px;border-radius:50%;background:${isDOM ? 'var(--accent2)' : green(0.25)};flex-shrink:0"></div><span style="font-size:0.75rem;color:${isDOM ? 'var(--text2)' : 'var(--text3)'}">${s.name} <strong>${s.pct}%</strong></span>`;
+        if (s.clickable) row.addEventListener('click', () => drillDown(s.name.toLowerCase()));
+        legendEl.appendChild(row);
+      });
+
+    } else {
+      const cat = data[view];
+      if (!cat || !cat.slices.length) return;
+      let deg = -90;
+      cat.slices.forEach((s, i) => {
+        const end = deg + s.pct / 100 * 360;
+        const p = makePath(arcD(deg, end), green(OPACITIES[i] ?? 0.3), animate, i * 60);
+        p.addEventListener('mouseenter', e => showTip(e, `${s.name} · ${s.pct}%`));
+        p.addEventListener('mousemove',  moveTip);
+        p.addEventListener('mouseleave', hideTip);
+        svg.appendChild(p);
+        deg = end;
+      });
+
+      centerEl.innerHTML = `<div style="font-size:0.62rem;font-weight:700;color:var(--text);white-space:nowrap">${view === 'music' ? 'Music' : 'Podcasts'}</div><div style="font-size:0.75rem;color:var(--text3)">${cat.total_h}h total</div>`;
+
+      legendEl.innerHTML = '';
+      const back = document.createElement('div');
+      back.style.cssText = 'font-size:0.65rem;color:var(--text3);cursor:pointer;margin-bottom:4px';
+      back.textContent = '← Back';
+      back.addEventListener('click', () => renderView('overview', true));
+      legendEl.appendChild(back);
+
+      cat.slices.forEach((s, i) => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:7px';
+        const label = s.name.length > 17 ? s.name.slice(0, 16) + '…' : s.name;
+        row.innerHTML = `<div style="width:8px;height:8px;border-radius:50%;background:${green(OPACITIES[i] ?? 0.3)};flex-shrink:0"></div><span style="font-size:0.72rem;color:var(--text3)">${escHtml(label)} <strong style="color:var(--text2)">${s.pct}%</strong></span>`;
+        legendEl.appendChild(row);
+      });
+    }
+  }
+
+  function drillDown(view) {
+    dismissHint();
+    renderView(view, true);
+  }
+
+  renderView('overview', true);
 }
 
 function animateRadar(container) {
@@ -5058,50 +5189,62 @@ function renderHome() {
     }
   }
 
-  // ── Visual 1: Music vs Podcast Donut ──
+  // ── Visual 1: Music vs Podcast Donut (interactive) ──
   let landingDonutHtml = '';
-  if (totalMs > 0) {
+  if (musicMs > 0 || podMs > 0) {
     const bothMs = musicMs + podMs;
     const mPct = bothMs > 0 ? musicMs / bothMs : 0;
-    const pPct = bothMs > 0 ? podMs  / bothMs : 0;
     const mPctR = Math.round(mPct * 100);
     const pPctR = 100 - mPctR;
-    const R = 44, CX = 60, CY = 60, SW = 14;
-    const C = (2 * Math.PI * R).toFixed(2);
-    const mLen = (parseFloat(C) * mPct).toFixed(2);
-    const pLen = (parseFloat(C) * pPct).toFixed(2);
-    const pRotate = (-90 + mPct * 360).toFixed(2);
-    const musicDominant = mPct >= pPct;
-    const dominant = musicDominant ? 'Music' : 'Podcasts';
-    const dominantPct = musicDominant ? mPctR : pPctR;
-    const mColor = musicDominant ? 'var(--accent2)' : 'rgba(76,175,125,0.25)';
-    const pColor = musicDominant ? 'rgba(76,175,125,0.25)' : 'var(--accent2)';
-    const mDotColor = musicDominant ? 'var(--accent2)' : 'rgba(76,175,125,0.25)';
-    const pDotColor = musicDominant ? 'rgba(76,175,125,0.25)' : 'var(--accent2)';
-    const mTextColor = musicDominant ? 'var(--text2)' : 'var(--text3)';
-    const pTextColor = musicDominant ? 'var(--text3)' : 'var(--text2)';
-    const mLegend = mPctR > 0 ? `<div style="display:flex;align-items:center;gap:7px"><div style="width:8px;height:8px;border-radius:50%;background:${mDotColor};flex-shrink:0"></div><span style="font-size:0.75rem;color:${mTextColor}">Music <strong>${mPctR}%</strong></span></div>` : '';
-    const pLegend = pPctR > 0 ? `<div style="display:flex;align-items:center;gap:7px"><div style="width:8px;height:8px;border-radius:50%;background:${pDotColor};flex-shrink:0"></div><span style="font-size:0.75rem;color:${pTextColor}">Podcasts <strong>${pPctR}%</strong></span></div>` : '';
+    const musicDominant = mPct >= 0.5;
+
+    // Top 4 artists by listening time
+    const artistMsMap = {};
+    for (const r of State.music) {
+      const a = r.master_metadata_album_artist_name;
+      if (a) artistMsMap[a] = (artistMsMap[a] || 0) + (r.ms_played || 0);
+    }
+    const top4Artists = Object.entries(artistMsMap).sort((a,b) => b[1]-a[1]).slice(0, 4);
+    const top4ArtistSlices = musicMs > 0 ? top4Artists.map(([name, ms]) => ({ name, pct: Math.round(ms / musicMs * 100) })) : [];
+
+    // Top 4 shows by listening time
+    const showMsMap = {};
+    for (const r of State.podcasts) {
+      const s = r.episode_show_name;
+      if (s) showMsMap[s] = (showMsMap[s] || 0) + (r.ms_played || 0);
+    }
+    const top4Shows = Object.entries(showMsMap).sort((a,b) => b[1]-a[1]).slice(0, 4);
+    const top4ShowSlices = podMs > 0 ? top4Shows.map(([name, ms]) => ({ name, pct: Math.round(ms / podMs * 100) })) : [];
+
+    const donutData = {
+      music_dominant: musicDominant,
+      overview: {
+        slices: [
+          { name: 'Music',    pct: mPctR, clickable: top4ArtistSlices.length > 0 },
+          { name: 'Podcasts', pct: pPctR, clickable: top4ShowSlices.length > 0 }
+        ],
+        center_label: musicDominant ? 'Music' : 'Podcasts',
+        center_pct:   musicDominant ? mPctR : pPctR
+      },
+      music:    { total_h: Math.round(musicMs / 3600000), slices: top4ArtistSlices },
+      podcasts: { total_h: Math.round(podMs   / 3600000), slices: top4ShowSlices }
+    };
+
+    const donutJson = JSON.stringify(donutData)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
     landingDonutHtml = `
-      <div style="display:flex;align-items:center;gap:16px;flex-shrink:0">
+      <div id="landing-donut-widget" data-donut="${donutJson}" style="display:flex;align-items:center;gap:16px;flex-shrink:0">
         <div style="position:relative;flex-shrink:0">
-          <svg width="120" height="120" viewBox="0 0 120 120" style="display:block">
-            <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="var(--border)" stroke-width="${SW}"/>
-            <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${mColor}" stroke-width="${SW}"
-                    stroke-dasharray="0 ${C}" stroke-linecap="butt"
-                    transform="rotate(-90 ${CX} ${CY})"
-                    class="landing-donut-arc" data-final-seg="${mLen}" data-circ="${C}"/>
-            <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${pColor}" stroke-width="${SW}"
-                    stroke-dasharray="0 ${C}" stroke-linecap="butt"
-                    transform="rotate(${pRotate} ${CX} ${CY})"
-                    class="landing-donut-arc" data-final-seg="${pLen}" data-circ="${C}"/>
+          <svg id="landing-donut-svg" width="120" height="120" viewBox="0 0 120 120" style="display:block">
+            <circle cx="60" cy="60" r="44" fill="none" stroke="var(--border)" stroke-width="14"/>
           </svg>
-          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;line-height:1.2">
-            <div style="font-size:0.62rem;font-weight:700;color:var(--text);white-space:nowrap">${dominant}</div>
-            <div style="font-size:0.9rem;font-weight:700;color:var(--accent2)">${dominantPct}%</div>
-          </div>
+          <div id="landing-donut-center" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;line-height:1.2"></div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:8px">${mLegend}${pLegend}</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div id="landing-donut-legend"></div>
+          <div id="landing-donut-hint" style="font-size:0.65rem;color:var(--text3);margin-top:4px;transition:opacity 300ms">Click a category to explore</div>
+        </div>
       </div>`;
   }
 
