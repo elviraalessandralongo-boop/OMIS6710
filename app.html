@@ -1787,6 +1787,7 @@ function initLandingDonut(container) {
   }
 
   function drillDown(view) {
+    if (view === 'music') return;
     dismissHint();
     renderView(view, true);
   }
@@ -5273,7 +5274,7 @@ function renderHome() {
       music_dominant: musicDominant,
       overview: {
         slices: [
-          { name: 'Music',    pct: mPctR, clickable: top4ArtistSlices.length > 0 },
+          { name: 'Music',    pct: mPctR, clickable: false },
           { name: 'Podcasts', pct: pPctR, clickable: top4ShowSlices.length > 0 }
         ],
         center_label: musicDominant ? 'Music' : 'Podcasts',
@@ -5296,7 +5297,7 @@ function renderHome() {
         </div>
         <div style="display:flex;flex-direction:column;gap:6px">
           <div id="landing-donut-legend"></div>
-          <div id="landing-donut-hint" style="font-size:0.65rem;color:var(--text3);margin-top:4px;transition:opacity 300ms">Click a category to explore</div>
+          <div id="landing-donut-hint" style="font-size:0.65rem;color:var(--text3);margin-top:4px;transition:opacity 300ms">Click Podcasts to explore</div>
         </div>
       </div>`;
   }
