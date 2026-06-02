@@ -3,555 +3,1118 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Output Reviewer — Governance & Verification</title>
+<title>AI Output Reviewer — Audit Governance Platform</title>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  :root {
-    --bg: #f5f5f0;
-    --surface: #ffffff;
-    --border: #e0ddd6;
-    --text: #1a1a1a;
-    --text-muted: #6b6b6b;
-    --accent: #1a3a5c;
-    --accent-light: #e8eef5;
-    --accept: #1a6b3a;
-    --accept-bg: #f0f8f3;
-    --accept-border: #b8ddc6;
-    --verify: #7a5c00;
-    --verify-bg: #fffbf0;
-    --verify-border: #f0d060;
-    --push: #8b1a1a;
-    --push-bg: #fff5f5;
-    --push-border: #f0b8b8;
-    --radius: 8px;
-    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
-  }
+:root {
+  --bg:            #ecedef;
+  --surface:       #ffffff;
+  --surface-2:     #f4f5f6;
+  --border:        #d0d3d8;
+  --border-heavy:  #9aa0aa;
+  --text:          #111318;
+  --text-2:        #3d4148;
+  --text-muted:    #6b717d;
+  --navy:          #0f1f38;
+  --navy-mid:      #1a3257;
+  --navy-light:    #e6eaf1;
+  --navy-rule:     #2a4a7a;
+  --accept:        #0a5c2b;
+  --accept-bg:     #edf7f1;
+  --accept-rule:   #3a9e66;
+  --verify:        #6b4a00;
+  --verify-bg:     #fdf8ec;
+  --verify-rule:   #c8920a;
+  --push:          #7a1010;
+  --push-bg:       #fdf0f0;
+  --push-rule:     #c03030;
+  --step-done:     #0a5c2b;
+  --step-active:   #0f1f38;
+  --step-inactive: #9aa0aa;
+}
 
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-  }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+}
 
-  /* Header */
-  header {
-    background: var(--accent);
-    color: white;
-    padding: 0 32px;
-    height: 60px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-shrink: 0;
-  }
+/* ── TOP BAR ───────────────────────────────────────────── */
+.topbar {
+  height: 48px;
+  background: var(--navy);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  flex-shrink: 0;
+  border-bottom: 2px solid var(--navy-rule);
+}
 
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
 
-  .logo-icon {
-    width: 28px;
-    height: 28px;
-    background: rgba(255,255,255,0.15);
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-  }
+.product-name {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
 
-  .logo-text {
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: -0.2px;
-  }
+.product-divider {
+  width: 1px;
+  height: 18px;
+  background: rgba(255,255,255,0.2);
+}
 
-  .logo-sub {
-    font-size: 11px;
-    opacity: 0.6;
-    font-weight: 400;
-    margin-left: 2px;
-  }
+.product-sub {
+  color: rgba(255,255,255,0.55);
+  font-size: 11.5px;
+  letter-spacing: 0.4px;
+}
 
-  .header-badge {
-    font-size: 11px;
-    background: rgba(255,255,255,0.12);
-    border: 1px solid rgba(255,255,255,0.2);
-    padding: 3px 10px;
-    border-radius: 20px;
-    letter-spacing: 0.5px;
-  }
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
 
-  /* API Key bar */
-  .api-bar {
-    background: var(--accent-light);
-    border-bottom: 1px solid var(--border);
-    padding: 10px 32px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-shrink: 0;
-  }
+.env-badge {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #f0c040;
+  border: 1px solid rgba(240,192,64,0.4);
+  padding: 3px 8px;
+}
 
-  .api-bar label {
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--accent);
-    white-space: nowrap;
-  }
+.api-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
-  .api-bar input {
-    flex: 1;
-    max-width: 380px;
-    padding: 6px 10px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    font-size: 12px;
-    font-family: 'SF Mono', 'Fira Code', monospace;
-    background: white;
-    color: var(--text);
-    outline: none;
-  }
+.api-inline label {
+  font-size: 11px;
+  color: rgba(255,255,255,0.5);
+  letter-spacing: 0.3px;
+}
 
-  .api-bar input:focus { border-color: var(--accent); }
+.api-inline input {
+  width: 230px;
+  padding: 4px 8px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: #fff;
+  font-size: 11.5px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  outline: none;
+  letter-spacing: 0.3px;
+}
 
-  .api-note {
-    font-size: 11px;
-    color: var(--text-muted);
-  }
+.api-inline input::placeholder { color: rgba(255,255,255,0.25); }
+.api-inline input:focus { border-color: rgba(255,255,255,0.4); }
 
-  /* Main layout */
-  main {
-    flex: 1;
-    display: flex;
-    gap: 0;
-    overflow: hidden;
-    min-height: 0;
-  }
+/* ── WORKFLOW STEPS ─────────────────────────────────────── */
+.workflow-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 28px;
+  display: flex;
+  align-items: center;
+  height: 52px;
+  flex-shrink: 0;
+  gap: 0;
+}
 
-  /* Left panel */
-  .panel-left {
-    width: 48%;
-    min-width: 380px;
-    display: flex;
-    flex-direction: column;
-    border-right: 1px solid var(--border);
-    background: var(--surface);
-    overflow: hidden;
-  }
+.step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px 0 0;
+  cursor: default;
+  user-select: none;
+}
 
-  .panel-header {
-    padding: 20px 24px 16px;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }
+.step-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  border: 1.5px solid var(--step-inactive);
+  color: var(--step-inactive);
+}
 
-  .panel-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text);
-    letter-spacing: 0.3px;
-    text-transform: uppercase;
-  }
+.step-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--step-inactive);
+}
 
-  .panel-desc {
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-top: 3px;
-  }
+.step.done .step-num   { background: var(--step-done); border-color: var(--step-done); color: #fff; }
+.step.done .step-label { color: var(--step-done); }
+.step.active .step-num { background: var(--step-active); border-color: var(--step-active); color: #fff; }
+.step.active .step-label { color: var(--step-active); }
 
-  .examples-row {
-    padding: 12px 24px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    flex-shrink: 0;
-    background: #fafaf8;
-  }
+.step-arrow {
+  color: var(--border-heavy);
+  font-size: 12px;
+  margin-right: 20px;
+  flex-shrink: 0;
+}
 
-  .examples-label {
-    font-size: 11px;
-    color: var(--text-muted);
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    margin-right: 2px;
-  }
+.workflow-spacer { flex: 1; }
 
-  .example-btn {
-    font-size: 11px;
-    padding: 4px 10px;
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    background: white;
-    color: var(--text-muted);
-    cursor: pointer;
-    transition: all 0.15s;
-    white-space: nowrap;
-  }
+/* Auditor meta fields */
+.auditor-fields {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
 
-  .example-btn:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: var(--accent-light);
-  }
+.meta-field {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
 
-  textarea {
-    flex: 1;
-    padding: 20px 24px;
-    border: none;
-    outline: none;
-    resize: none;
-    font-size: 13.5px;
-    line-height: 1.65;
-    color: var(--text);
-    font-family: inherit;
-    background: white;
-  }
+.meta-field label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
 
-  textarea::placeholder { color: #bbb; }
+.meta-field input {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 12px;
+  color: var(--text);
+  outline: none;
+  width: 150px;
+}
 
-  .action-bar {
-    padding: 16px 24px;
-    border-top: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-shrink: 0;
-    background: white;
-  }
+.meta-field input:focus { border-color: var(--navy-mid); }
 
-  .char-count {
-    font-size: 11px;
-    color: var(--text-muted);
-  }
+.meta-field input[type="date"] { width: 130px; }
 
-  .review-btn {
-    padding: 9px 22px;
-    background: var(--accent);
-    color: white;
-    border: none;
-    border-radius: var(--radius);
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    transition: opacity 0.15s;
-    letter-spacing: 0.2px;
-  }
+/* ── MAIN LAYOUT ─────────────────────────────────────────── */
+main {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
+}
 
-  .review-btn:hover { opacity: 0.9; }
-  .review-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+/* ── LEFT PANEL ──────────────────────────────────────────── */
+.panel-left {
+  width: 420px;
+  min-width: 380px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-right: 1px solid var(--border-heavy);
+  overflow-y: auto;
+}
 
-  .spinner {
-    width: 14px;
-    height: 14px;
-    border: 2px solid rgba(255,255,255,0.3);
-    border-top-color: white;
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    display: none;
-  }
+.panel-section-head {
+  padding: 16px 22px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
 
-  @keyframes spin { to { transform: rotate(360deg); } }
+.panel-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
 
-  /* Right panel */
-  .panel-right {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    background: var(--bg);
-  }
+.panel-section-desc {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  line-height: 1.5;
+}
 
-  .results-area {
-    flex: 1;
-    overflow-y: auto;
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
+/* Accepted formats list */
+.formats-grid {
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 
-  /* Empty state */
-  .empty-state {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    color: var(--text-muted);
-    text-align: center;
-    padding: 40px;
-  }
+.format-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
 
-  .empty-icon {
-    width: 48px;
-    height: 48px;
-    border: 2px solid var(--border);
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-    opacity: 0.5;
-  }
+.format-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
 
-  .empty-title { font-size: 14px; font-weight: 500; }
-  .empty-sub { font-size: 12px; max-width: 260px; line-height: 1.5; }
+.format-info { flex: 1; }
 
-  /* Review sections */
-  .review-section {
-    background: var(--surface);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    overflow: hidden;
-    border: 1px solid var(--border);
-  }
+.format-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
 
-  .section-header {
-    padding: 14px 18px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    border-bottom: 1px solid var(--border);
-  }
+.format-exts {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 1px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  letter-spacing: 0.2px;
+}
 
-  .section-icon { font-size: 16px; }
+/* Upload zone */
+.upload-zone-wrap {
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--border);
+}
 
-  .section-label {
-    font-size: 13px;
-    font-weight: 600;
-  }
+.upload-zone {
+  border: 2px dashed var(--border-heavy);
+  padding: 22px 18px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  background: var(--surface-2);
+  position: relative;
+}
 
-  .section-count {
-    margin-left: auto;
-    font-size: 11px;
-    font-weight: 500;
-    padding: 2px 8px;
-    border-radius: 10px;
-  }
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color: var(--navy-mid);
+  background: var(--navy-light);
+}
 
-  .accept-section .section-header { background: var(--accept-bg); border-bottom-color: var(--accept-border); }
-  .accept-section .section-label { color: var(--accept); }
-  .accept-section .section-count { background: var(--accept-border); color: var(--accept); }
+.upload-zone input[type="file"] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
 
-  .verify-section .section-header { background: var(--verify-bg); border-bottom-color: var(--verify-border); }
-  .verify-section .section-label { color: var(--verify); }
-  .verify-section .section-count { background: var(--verify-border); color: var(--verify); }
+.upload-icon { font-size: 24px; margin-bottom: 8px; }
 
-  .push-section .section-header { background: var(--push-bg); border-bottom-color: var(--push-border); }
-  .push-section .section-label { color: var(--push); }
-  .push-section .section-count { background: var(--push-border); color: var(--push); }
+.upload-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
 
-  .section-items { padding: 4px 0; }
+.upload-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+}
 
-  .review-item {
-    padding: 12px 18px;
-    display: grid;
-    grid-template-rows: auto auto;
-    gap: 4px;
-    border-bottom: 1px solid var(--border);
-  }
+.upload-exts {
+  font-size: 10.5px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: var(--text-muted);
+  margin-top: 6px;
+  letter-spacing: 0.3px;
+}
 
-  .review-item:last-child { border-bottom: none; }
+.file-loaded {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--accept-bg);
+  border: 1px solid var(--accept-rule);
+  margin-top: 10px;
+}
 
-  .item-finding {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text);
-    line-height: 1.4;
-  }
+.file-loaded.visible { display: flex; }
 
-  .item-reason {
-    font-size: 12px;
-    color: var(--text-muted);
-    line-height: 1.45;
-  }
+.file-loaded-icon { font-size: 16px; }
 
-  /* Summary bar */
-  .summary-bar {
-    background: var(--surface);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    border: 1px solid var(--border);
-    padding: 14px 18px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 20px;
-  }
+.file-loaded-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accept);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
-  .summary-label {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--text-muted);
-  }
+.file-loaded-remove {
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
 
-  .summary-chips {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-  }
+.file-loaded-remove:hover { color: var(--push); border-color: var(--push-rule); }
 
-  .chip {
-    font-size: 12px;
-    font-weight: 500;
-    padding: 3px 10px;
-    border-radius: 20px;
-  }
+/* Text fallback */
+.text-input-section {
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
 
-  .chip-accept { background: var(--accept-bg); color: var(--accept); border: 1px solid var(--accept-border); }
-  .chip-verify { background: var(--verify-bg); color: var(--verify); border: 1px solid var(--verify-border); }
-  .chip-push   { background: var(--push-bg);   color: var(--push);   border: 1px solid var(--push-border); }
+.section-or {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
 
-  .confidence-pill {
-    font-size: 11px;
-    padding: 3px 10px;
-    border-radius: 20px;
-    background: var(--accent-light);
-    color: var(--accent);
-    font-weight: 500;
-    border: 1px solid #c0d0e0;
-  }
+.section-or::before, .section-or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
 
-  /* Error state */
-  .error-box {
-    background: var(--push-bg);
-    border: 1px solid var(--push-border);
-    border-radius: var(--radius);
-    padding: 14px 18px;
-    color: var(--push);
-    font-size: 13px;
-  }
+textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text);
+  font-family: inherit;
+  resize: vertical;
+  min-height: 160px;
+  outline: none;
+  background: var(--surface);
+}
 
-  /* Loading skeleton */
-  .skeleton-section {
-    background: var(--surface);
-    border-radius: var(--radius);
-    border: 1px solid var(--border);
-    overflow: hidden;
-  }
+textarea:focus { border-color: var(--navy-mid); }
+textarea::placeholder { color: #bbb; }
 
-  .skeleton-bar {
-    height: 14px;
-    background: linear-gradient(90deg, #f0f0ee 25%, #e8e8e4 50%, #f0f0ee 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.4s infinite;
-    border-radius: 4px;
-    margin: 12px 18px;
-  }
+/* Example findings */
+.examples-section {
+  padding: 12px 22px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
 
-  .skeleton-bar.short { width: 40%; }
-  .skeleton-bar.full  { width: 85%; }
-  .skeleton-bar.med   { width: 65%; }
+.examples-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
 
-  @keyframes shimmer { to { background-position: -200% 0; } }
+.example-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
 
-  /* Footer */
-  footer {
-    padding: 10px 32px;
-    border-top: 1px solid var(--border);
-    background: var(--surface);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-shrink: 0;
-  }
+.example-btn {
+  font-size: 11.5px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-2);
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.1s, border-color 0.1s;
+}
 
-  .footer-left {
-    font-size: 11px;
-    color: var(--text-muted);
-  }
+.example-btn:hover {
+  background: var(--navy-light);
+  border-color: var(--navy-mid);
+  color: var(--navy-mid);
+}
 
-  .footer-right {
-    font-size: 11px;
-    color: var(--text-muted);
-    font-style: italic;
-  }
+.example-btn-icon { font-size: 13px; }
+
+.example-btn-text { font-weight: 500; }
+
+.example-btn-meta { color: var(--text-muted); font-size: 11px; margin-left: auto; }
+
+/* Action row */
+.action-row {
+  padding: 14px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface);
+}
+
+.char-count { font-size: 11px; color: var(--text-muted); }
+
+.review-btn {
+  padding: 9px 22px;
+  background: var(--navy);
+  color: white;
+  border: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.15s;
+}
+
+.review-btn:hover:not(:disabled) { background: var(--navy-mid); }
+.review-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: none;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── RIGHT PANEL ─────────────────────────────────────────── */
+.panel-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.results-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px;
+}
+
+/* Empty state */
+.empty-state {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 32px;
+  opacity: 0.3;
+  margin-bottom: 4px;
+}
+
+.empty-title { font-size: 14px; font-weight: 600; color: var(--text-2); }
+.empty-sub { font-size: 12px; max-width: 300px; line-height: 1.55; color: var(--text-muted); }
+
+/* Review document */
+.review-doc {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border-heavy);
+  background: var(--surface);
+}
+
+/* Document header */
+.doc-header {
+  padding: 20px 26px 16px;
+  border-bottom: 3px solid var(--navy);
+  background: var(--surface);
+}
+
+.doc-header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.doc-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--navy);
+  letter-spacing: -0.2px;
+}
+
+.doc-subtitle {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  letter-spacing: 0.2px;
+}
+
+.doc-ref {
+  font-size: 11px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.doc-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  border: 1px solid var(--border);
+}
+
+.doc-meta-cell {
+  padding: 8px 12px;
+  border-right: 1px solid var(--border);
+}
+
+.doc-meta-cell:last-child { border-right: none; }
+
+.doc-meta-key {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 3px;
+}
+
+.doc-meta-val {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* Summary strip */
+.doc-summary-strip {
+  padding: 10px 26px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.summary-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+
+.tally {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tally-chip {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.tally-accept { background: var(--accept-bg); color: var(--accept); border: 1px solid var(--accept-rule); }
+.tally-verify { background: var(--verify-bg); color: var(--verify); border: 1px solid var(--verify-rule); }
+.tally-push   { background: var(--push-bg);   color: var(--push);   border: 1px solid var(--push-rule); }
+
+.risk-pill {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border: 1.5px solid;
+}
+
+.risk-low      { color: var(--accept); border-color: var(--accept-rule); background: var(--accept-bg); }
+.risk-moderate { color: var(--verify); border-color: var(--verify-rule); background: var(--verify-bg); }
+.risk-high, .risk-very { color: var(--push); border-color: var(--push-rule); background: var(--push-bg); }
+
+/* Review sections */
+.doc-section {
+  border-bottom: 1px solid var(--border);
+}
+
+.doc-section:last-child { border-bottom: none; }
+
+.doc-section-header {
+  padding: 10px 26px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+}
+
+.doc-section-header:hover { background: var(--surface-2); }
+
+.section-stripe {
+  width: 4px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.accept-stripe { background: var(--accept-rule); }
+.verify-stripe { background: var(--verify-rule); }
+.push-stripe   { background: var(--push-rule); }
+
+.section-heading {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.accept-heading { color: var(--accept); }
+.verify-heading { color: var(--verify); }
+.push-heading   { color: var(--push); }
+
+.section-count-badge {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border: 1px solid;
+}
+
+.accept-badge { color: var(--accept); border-color: var(--accept-rule); background: var(--accept-bg); }
+.verify-badge { color: var(--verify); border-color: var(--verify-rule); background: var(--verify-bg); }
+.push-badge   { color: var(--push);   border-color: var(--push-rule);   background: var(--push-bg); }
+
+.section-toggle { margin-left: auto; font-size: 11px; color: var(--text-muted); }
+
+/* Finding rows */
+.findings-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.findings-table th {
+  padding: 7px 14px 7px 26px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.findings-table th:last-child { padding-left: 14px; }
+
+.findings-table td {
+  padding: 12px 14px 12px 26px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+
+.findings-table tr:last-child td { border-bottom: none; }
+
+.findings-table td:last-child { padding-left: 14px; }
+
+.findings-table tr:hover td { background: #fafbfc; }
+
+.finding-id {
+  font-size: 10.5px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: var(--text-muted);
+  white-space: nowrap;
+  padding-top: 2px;
+}
+
+.finding-text {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.45;
+  margin-bottom: 3px;
+}
+
+.finding-reason {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.finding-reason strong { color: var(--text-2); font-weight: 600; }
+
+.notes-cell {
+  width: 200px;
+  min-width: 160px;
+}
+
+.notes-input {
+  width: 100%;
+  min-height: 52px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 11.5px;
+  font-family: inherit;
+  color: var(--text);
+  resize: vertical;
+  outline: none;
+  line-height: 1.5;
+}
+
+.notes-input:focus { border-color: var(--navy-mid); background: #fff; }
+.notes-input::placeholder { color: #ccc; font-style: italic; }
+
+/* Sign-off footer */
+.doc-signoff {
+  padding: 16px 26px;
+  background: var(--surface-2);
+  border-top: 2px solid var(--navy);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.signoff-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.signoff-fields {
+  display: flex;
+  gap: 20px;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.signoff-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+}
+
+.signoff-field label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.signoff-line {
+  width: 180px;
+  border-bottom: 1.5px solid var(--border-heavy);
+  height: 22px;
+  font-size: 12px;
+  color: var(--text);
+  padding: 0 4px;
+  background: transparent;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  outline: none;
+}
+
+.signoff-line:focus { border-bottom-color: var(--navy); }
+
+/* Skeleton */
+.skeleton-doc {
+  border: 1px solid var(--border-heavy);
+  background: var(--surface);
+}
+
+.sk {
+  height: 13px;
+  background: linear-gradient(90deg, #ebebeb 25%, #e2e2e0 50%, #ebebeb 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.3s infinite;
+}
+
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+.sk-row { padding: 12px 26px; border-bottom: 1px solid var(--border); display: flex; gap: 12px; align-items: center; }
+.sk-wide  { flex: 1; }
+.sk-mid   { width: 55%; }
+.sk-short { width: 30%; }
+.sk-tiny  { width: 60px; height: 11px; }
+
+/* Error */
+.error-box {
+  background: var(--push-bg);
+  border: 1px solid var(--push-rule);
+  padding: 14px 18px;
+  color: var(--push);
+  font-size: 12.5px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+/* Status bar */
+.statusbar {
+  height: 26px;
+  background: var(--navy);
+  display: flex;
+  align-items: center;
+  padding: 0 22px;
+  gap: 20px;
+  flex-shrink: 0;
+}
+
+.status-item {
+  font-size: 10.5px;
+  color: rgba(255,255,255,0.45);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+}
+
+.status-dot.green { background: #4caf6e; }
+.status-dot.yellow { background: #f0c040; }
+
+.status-spacer { flex: 1; }
+
+.status-right {
+  font-size: 10px;
+  color: rgba(255,255,255,0.3);
+  font-style: italic;
+}
 </style>
 </head>
 <body>
 
-<header>
-  <div class="logo">
-    <div class="logo-icon">⚖</div>
-    <div>
-      <span class="logo-text">AI Output Reviewer</span>
-      <span class="logo-sub"> — Governance & Verification</span>
+<!-- Top bar -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="product-name">AI Output Reviewer</div>
+    <div class="product-divider"></div>
+    <div class="product-sub">Audit Governance Platform &nbsp;·&nbsp; Version 1.0</div>
+  </div>
+  <div class="topbar-right">
+    <div class="env-badge">Demo</div>
+    <div class="api-inline">
+      <label for="apiKey">API KEY</label>
+      <input type="password" id="apiKey" placeholder="sk-ant-api03-..." autocomplete="off">
     </div>
   </div>
-  <div class="header-badge">GOVERNANCE TOOL · PROTOTYPE</div>
-</header>
+</div>
 
-<div class="api-bar">
-  <label for="apiKey">Anthropic API Key</label>
-  <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off">
-  <span class="api-note">Key is used client-side only and never stored.</span>
+<!-- Workflow bar -->
+<div class="workflow-bar">
+  <div class="step active" id="step1">
+    <div class="step-num">1</div>
+    <div class="step-label">Document Intake</div>
+  </div>
+  <div class="step-arrow">›</div>
+  <div class="step" id="step2">
+    <div class="step-num">2</div>
+    <div class="step-label">AI Review</div>
+  </div>
+  <div class="step-arrow">›</div>
+  <div class="step" id="step3">
+    <div class="step-num">3</div>
+    <div class="step-label">Sign Off</div>
+  </div>
+
+  <div class="workflow-spacer"></div>
+
+  <div class="auditor-fields">
+    <div class="meta-field">
+      <label for="auditorName">Reviewer</label>
+      <input type="text" id="auditorName" placeholder="Full name">
+    </div>
+    <div class="meta-field">
+      <label for="engagementCode">Engagement</label>
+      <input type="text" id="engagementCode" placeholder="e.g. EY-2024-0892">
+    </div>
+    <div class="meta-field">
+      <label for="reviewDate">Date</label>
+      <input type="date" id="reviewDate">
+    </div>
+  </div>
 </div>
 
 <main>
-  <!-- Left: Input -->
+  <!-- Left: Document intake -->
   <div class="panel-left">
-    <div class="panel-header">
-      <div class="panel-title">AI-Generated Output</div>
-      <div class="panel-desc">Paste any AI-generated audit finding, financial analysis, or accounting output below.</div>
+
+    <div class="panel-section-head">
+      <div class="panel-section-title">Accepted Document Types</div>
+      <div class="panel-section-desc">This reviewer accepts the following document formats. Upload a file or paste text below.</div>
     </div>
 
-    <div class="examples-row">
-      <span class="examples-label">Load example →</span>
-      <button class="example-btn" onclick="loadExample(0)">Revenue Recognition</button>
-      <button class="example-btn" onclick="loadExample(1)">Going Concern</button>
-      <button class="example-btn" onclick="loadExample(2)">Inventory Valuation</button>
-      <button class="example-btn" onclick="loadExample(3)">Related Party</button>
+    <div class="formats-grid">
+      <div class="format-row">
+        <div class="format-icon">📄</div>
+        <div class="format-info">
+          <div class="format-name">Financial Statements</div>
+          <div class="format-exts">.pdf</div>
+        </div>
+      </div>
+      <div class="format-row">
+        <div class="format-icon">🗂</div>
+        <div class="format-info">
+          <div class="format-name">Audit Findings Reports</div>
+          <div class="format-exts">.pdf &nbsp;·&nbsp; .docx &nbsp;·&nbsp; .doc</div>
+        </div>
+      </div>
+      <div class="format-row">
+        <div class="format-icon">🤖</div>
+        <div class="format-info">
+          <div class="format-name">AI-Generated Memos &amp; Summaries</div>
+          <div class="format-exts">.pdf &nbsp;·&nbsp; .docx &nbsp;·&nbsp; .txt</div>
+        </div>
+      </div>
+      <div class="format-row">
+        <div class="format-icon">📊</div>
+        <div class="format-info">
+          <div class="format-name">Trial Balances &amp; Reconciliations</div>
+          <div class="format-exts">.xlsx &nbsp;·&nbsp; .xls &nbsp;·&nbsp; .csv</div>
+        </div>
+      </div>
     </div>
 
-    <textarea id="inputText" placeholder="Paste AI-generated audit finding or financial output here…
+    <div class="upload-zone-wrap">
+      <div class="upload-zone" id="uploadZone">
+        <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.txt,.xlsx,.xls,.csv" onchange="handleFileSelect(this)">
+        <div class="upload-icon">⬆</div>
+        <div class="upload-title">Drop file here or click to browse</div>
+        <div class="upload-hint">All document processing occurs locally in your browser</div>
+        <div class="upload-exts">.pdf · .docx · .doc · .txt · .xlsx · .xls · .csv</div>
+      </div>
+      <div class="file-loaded" id="fileLoaded">
+        <span class="file-loaded-icon">📎</span>
+        <span class="file-loaded-name" id="fileLoadedName"></span>
+        <button class="file-loaded-remove" onclick="clearFile()">Remove</button>
+      </div>
+    </div>
 
-Example: 'Based on our analysis, revenue recognition appears appropriate. The company recorded $42.3M in Q3 revenue, consistent with prior periods...'"></textarea>
+    <div class="text-input-section">
+      <div class="section-or">Or paste text directly</div>
+      <textarea id="inputText" placeholder="Paste AI-generated audit finding, financial analysis, or accounting output here…"></textarea>
+    </div>
 
-    <div class="action-bar">
-      <span class="char-count" id="charCount">0 characters</span>
+    <div class="examples-section">
+      <div class="examples-label">Load example finding</div>
+      <div class="example-btns">
+        <button class="example-btn" onclick="loadExample(0)">
+          <span class="example-btn-icon">📋</span>
+          <span class="example-btn-text">Revenue Recognition</span>
+          <span class="example-btn-meta">ASC 606 · Q3 FY2024</span>
+        </button>
+        <button class="example-btn" onclick="loadExample(1)">
+          <span class="example-btn-icon">📋</span>
+          <span class="example-btn-text">Going Concern Assessment</span>
+          <span class="example-btn-meta">FY2024 Annual</span>
+        </button>
+        <button class="example-btn" onclick="loadExample(2)">
+          <span class="example-btn-icon">📋</span>
+          <span class="example-btn-text">Inventory Valuation</span>
+          <span class="example-btn-meta">FIFO · Dec 2024</span>
+        </button>
+        <button class="example-btn" onclick="loadExample(3)">
+          <span class="example-btn-icon">📋</span>
+          <span class="example-btn-text">Related Party Transactions</span>
+          <span class="example-btn-meta">Q4 FY2024</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="action-row">
+      <span class="char-count" id="charCount">No input</span>
       <button class="review-btn" id="reviewBtn" onclick="runReview()">
         <span class="spinner" id="spinner"></span>
-        <span id="btnText">Review Output</span>
+        <span id="btnText">Run Review</span>
       </button>
     </div>
+
   </div>
 
-  <!-- Right: Results -->
+  <!-- Right: Review output -->
   <div class="panel-right">
     <div class="results-area" id="resultsArea">
       <div class="empty-state" id="emptyState">
         <div class="empty-icon">⚖</div>
-        <div class="empty-title">No output reviewed yet</div>
-        <div class="empty-sub">Paste an AI-generated finding on the left and click Review to begin governance analysis.</div>
+        <div class="empty-title">Awaiting document intake</div>
+        <div class="empty-sub">Upload a document or paste AI-generated output on the left, then click Run Review to generate a formal findings report.</div>
       </div>
     </div>
   </div>
 </main>
 
-<footer>
-  <div class="footer-left">AI outputs require human governance. This tool assists — it does not replace — professional judgement.</div>
-  <div class="footer-right">Powered by Claude · For demonstration purposes</div>
-</footer>
+<!-- Status bar -->
+<div class="statusbar">
+  <div class="status-item"><div class="status-dot green"></div>API ready</div>
+  <div class="status-item"><div class="status-dot" id="modelDot"></div><span id="modelLabel">Model: claude-opus-4-8</span></div>
+  <div class="status-spacer"></div>
+  <div class="status-right">AI outputs require human governance. This tool assists — it does not replace — professional judgement.</div>
+</div>
 
 <script>
+// ── Example data ─────────────────────────────────────────
 const EXAMPLES = [
   {
-    label: "Revenue Recognition",
+    label: "Revenue Recognition — Q3 FY2024",
     text: `Revenue Recognition Analysis — Q3 FY2024
 
 Based on our AI-assisted review, the company's revenue recognition appears appropriate and in compliance with ASC 606. Total revenue of $42.3M was recorded in Q3, representing a 12% increase year-over-year.
@@ -568,7 +1131,7 @@ Key findings:
 Overall assessment: Revenue recognition is materially accurate and no audit adjustments are required.`
   },
   {
-    label: "Going Concern",
+    label: "Going Concern — FY2024 Annual",
     text: `Going Concern Assessment — FY2024 Annual Audit
 
 AI-generated preliminary assessment:
@@ -586,7 +1149,7 @@ Key observations:
 Conclusion: Going concern disclosure is not required. Standard audit opinion is appropriate.`
   },
   {
-    label: "Inventory Valuation",
+    label: "Inventory Valuation — Dec 2024",
     text: `Inventory Valuation Review — Manufacturing Client
 
 AI-assisted analysis of inventory valuation as at December 31, 2024:
@@ -603,7 +1166,7 @@ Total inventory balance of $19.7M has been assessed as fairly stated. The follow
 Recommendation: No write-down required. Inventory is fairly stated at the lower of cost and NRV.`
   },
   {
-    label: "Related Party",
+    label: "Related Party Transactions — Q4 FY2024",
     text: `Related Party Transactions Review — Q4 FY2024
 
 Automated screening of related party transactions has been completed using AI-assisted journal entry analysis and vendor master data review.
@@ -620,125 +1183,304 @@ Overall conclusion: Related party disclosures are complete and transactions are 
   }
 ];
 
-const textarea = document.getElementById('inputText');
-const charCount = document.getElementById('charCount');
+// ── Init ──────────────────────────────────────────────────
+document.getElementById('reviewDate').valueAsDate = new Date();
 
-textarea.addEventListener('input', () => {
+const textarea = document.getElementById('inputText');
+textarea.addEventListener('input', updateCharCount);
+
+function updateCharCount() {
   const n = textarea.value.length;
-  charCount.textContent = n.toLocaleString() + ' character' + (n !== 1 ? 's' : '');
+  document.getElementById('charCount').textContent = n > 0
+    ? n.toLocaleString() + ' characters'
+    : fileContent ? 'File loaded' : 'No input';
+}
+
+// ── File handling ─────────────────────────────────────────
+let fileContent = null;
+
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+zone.addEventListener('drop', e => {
+  e.preventDefault();
+  zone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) readFile(f);
 });
 
+function handleFileSelect(input) {
+  if (input.files[0]) readFile(input.files[0]);
+}
+
+function readFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    fileContent = e.target.result;
+    document.getElementById('fileLoaded').classList.add('visible');
+    document.getElementById('fileLoadedName').textContent = file.name + ' (' + formatBytes(file.size) + ')';
+    document.getElementById('charCount').textContent = 'File loaded: ' + file.name;
+  };
+  if (file.name.match(/\.(txt|csv)$/i)) {
+    reader.readAsText(file);
+  } else {
+    // For PDF/Office files, we can only read as text — in a real app you'd use a parser
+    // For demo purposes we read as text and truncate unreadable binary
+    reader.readAsText(file);
+    fileContent = '[File: ' + file.name + ' — text extraction not available in this browser-only demo. Please paste the text content directly below.]';
+    document.getElementById('fileLoaded').classList.add('visible');
+    document.getElementById('fileLoadedName').textContent = file.name + ' (' + formatBytes(file.size) + ')';
+  }
+}
+
+function clearFile() {
+  fileContent = null;
+  document.getElementById('fileLoaded').classList.remove('visible');
+  document.getElementById('fileLoadedName').textContent = '';
+  document.getElementById('fileInput').value = '';
+  updateCharCount();
+}
+
+function formatBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+  return (b/1048576).toFixed(1) + ' MB';
+}
+
+// ── Examples ──────────────────────────────────────────────
 function loadExample(i) {
+  clearFile();
   textarea.value = EXAMPLES[i].text;
-  textarea.dispatchEvent(new Event('input'));
-  document.getElementById('emptyState') && (document.getElementById('emptyState').style.display = 'flex');
+  updateCharCount();
   clearResults();
+  setStep(1);
 }
 
+// ── Steps ─────────────────────────────────────────────────
+function setStep(n) {
+  for (let i = 1; i <= 3; i++) {
+    const el = document.getElementById('step' + i);
+    el.className = 'step ' + (i < n ? 'done' : i === n ? 'active' : '');
+    if (i < n) el.querySelector('.step-num').textContent = '✓';
+    else el.querySelector('.step-num').textContent = i;
+  }
+}
+
+// ── Clear results ─────────────────────────────────────────
 function clearResults() {
-  const area = document.getElementById('resultsArea');
-  area.innerHTML = `<div class="empty-state" id="emptyState">
-    <div class="empty-icon">⚖</div>
-    <div class="empty-title">No output reviewed yet</div>
-    <div class="empty-sub">Paste an AI-generated finding on the left and click Review to begin governance analysis.</div>
-  </div>`;
-}
-
-function showSkeleton() {
-  const area = document.getElementById('resultsArea');
-  area.innerHTML = `
-    <div class="skeleton-section">
-      <div class="skeleton-bar short"></div>
-      <div class="skeleton-bar full"></div>
-      <div class="skeleton-bar med"></div>
-      <div class="skeleton-bar full"></div>
-    </div>
-    <div class="skeleton-section">
-      <div class="skeleton-bar short"></div>
-      <div class="skeleton-bar full"></div>
-      <div class="skeleton-bar med"></div>
-    </div>
-    <div class="skeleton-section">
-      <div class="skeleton-bar short"></div>
-      <div class="skeleton-bar full"></div>
-      <div class="skeleton-bar med"></div>
-      <div class="skeleton-bar full"></div>
+  document.getElementById('resultsArea').innerHTML = `
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">⚖</div>
+      <div class="empty-title">Awaiting document intake</div>
+      <div class="empty-sub">Upload a document or paste AI-generated output on the left, then click Run Review to generate a formal findings report.</div>
     </div>`;
 }
 
-function showError(msg) {
-  document.getElementById('resultsArea').innerHTML =
-    `<div class="error-box">🚩 Error: ${msg}</div>`;
+// ── Skeleton ──────────────────────────────────────────────
+function showSkeleton() {
+  const rows = Array.from({length: 5}, (_, i) => `
+    <div class="sk-row">
+      <div class="sk sk-tiny"></div>
+      <div style="flex:1; display:flex; flex-direction:column; gap:6px;">
+        <div class="sk ${i%2===0?'sk-wide':'sk-mid'}"></div>
+        <div class="sk sk-short"></div>
+      </div>
+      <div style="width:160px;"><div class="sk sk-wide" style="height:36px;"></div></div>
+    </div>`).join('');
+  document.getElementById('resultsArea').innerHTML = `
+    <div class="skeleton-doc">
+      <div class="sk-row" style="border-bottom:3px solid #ddd;">
+        <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
+          <div class="sk" style="width:260px; height:18px;"></div>
+          <div class="sk sk-short" style="height:11px;"></div>
+        </div>
+      </div>
+      <div class="sk-row">${Array.from({length:4},()=>`<div class="sk sk-wide" style="height:38px;"></div>`).join('')}</div>
+      ${rows}
+    </div>`;
 }
 
+// ── Error ─────────────────────────────────────────────────
+function showError(msg) {
+  setStep(2);
+  document.getElementById('resultsArea').innerHTML =
+    `<div class="error-box"><span style="font-size:16px">⚠</span><div><strong>Review could not be completed</strong><br><span style="font-size:12px">${escHtml(msg)}</span></div></div>`;
+}
+
+// ── Render results ────────────────────────────────────────
+let refCounter = 0;
+
 function renderResults(data) {
+  refCounter++;
   const area = document.getElementById('resultsArea');
-  area.innerHTML = '';
+  const auditor = document.getElementById('auditorName').value.trim() || '—';
+  const engagement = document.getElementById('engagementCode').value.trim() || '—';
+  const date = document.getElementById('reviewDate').value || new Date().toISOString().split('T')[0];
+  const ref = 'AOR-' + date.replace(/-/g,'') + '-' + String(refCounter).padStart(3,'0');
 
-  const totalItems = data.accept.length + data.verify.length + data.push_back.length;
+  const riskClass = {
+    'low':'risk-low', 'moderate':'risk-moderate', 'high':'risk-high', 'very high':'risk-very'
+  }[(data.overall_risk||'moderate').toLowerCase()] || 'risk-moderate';
 
-  // Summary bar
-  const summary = document.createElement('div');
-  summary.className = 'summary-bar';
-  summary.innerHTML = `
-    <span class="summary-label">Review Summary</span>
-    <div class="summary-chips">
-      <span class="chip chip-accept">✅ ${data.accept.length} accepted</span>
-      <span class="chip chip-verify">⚠️ ${data.verify.length} to verify</span>
-      <span class="chip chip-push">🚩 ${data.push_back.length} push back</span>
+  const totalIssues = data.verify.length + data.push_back.length;
+
+  const doc = document.createElement('div');
+  doc.className = 'review-doc';
+
+  // Document header
+  doc.innerHTML = `
+    <div class="doc-header">
+      <div class="doc-header-top">
+        <div>
+          <div class="doc-title">AI Output Review — Formal Findings Report</div>
+          <div class="doc-subtitle">Generated by AI Output Reviewer · Subject to auditor sign-off before use</div>
+        </div>
+        <div class="doc-ref">Ref: ${escHtml(ref)}<br>Powered by Claude AI</div>
+      </div>
+      <div class="doc-meta-grid">
+        <div class="doc-meta-cell">
+          <div class="doc-meta-key">Reviewer</div>
+          <div class="doc-meta-val">${escHtml(auditor)}</div>
+        </div>
+        <div class="doc-meta-cell">
+          <div class="doc-meta-key">Engagement Code</div>
+          <div class="doc-meta-val">${escHtml(engagement)}</div>
+        </div>
+        <div class="doc-meta-cell">
+          <div class="doc-meta-key">Review Date</div>
+          <div class="doc-meta-val">${escHtml(date)}</div>
+        </div>
+        <div class="doc-meta-cell">
+          <div class="doc-meta-key">Status</div>
+          <div class="doc-meta-val" style="color:${totalIssues>0?'var(--verify)':'var(--accept)'}">
+            ${totalIssues > 0 ? 'Action Required' : 'No Issues Raised'}
+          </div>
+        </div>
+      </div>
     </div>
-    <span class="confidence-pill">Overall risk: ${data.overall_risk || 'Moderate'}</span>`;
-  area.appendChild(summary);
 
+    <div class="doc-summary-strip">
+      <span class="summary-label">Findings Summary</span>
+      <div class="tally">
+        <span class="tally-chip tally-accept">✓ ${data.accept.length} Accepted</span>
+        <span class="tally-chip tally-verify">⚠ ${data.verify.length} Verify</span>
+        <span class="tally-chip tally-push">✕ ${data.push_back.length} Push Back</span>
+      </div>
+      <span class="risk-pill ${riskClass}">Overall Risk: ${escHtml(data.overall_risk || 'Moderate')}</span>
+    </div>`;
+
+  // Sections
   const sections = [
-    { key: 'accept',    cls: 'accept-section', icon: '✅', label: 'Accept',     items: data.accept },
-    { key: 'verify',    cls: 'verify-section', icon: '⚠️', label: 'Verify',     items: data.verify },
-    { key: 'push_back', cls: 'push-section',   icon: '🚩', label: 'Push Back',  items: data.push_back },
+    {
+      key: 'accept', items: data.accept,
+      stripeClass: 'accept-stripe', headClass: 'accept-heading', badgeClass: 'accept-badge',
+      label: 'A — Accept', icon: '✓', prefix: 'ACC'
+    },
+    {
+      key: 'verify', items: data.verify,
+      stripeClass: 'verify-stripe', headClass: 'verify-heading', badgeClass: 'verify-badge',
+      label: 'B — Verify Before Sign-Off', icon: '⚠', prefix: 'VER'
+    },
+    {
+      key: 'push_back', items: data.push_back,
+      stripeClass: 'push-stripe', headClass: 'push-heading', badgeClass: 'push-badge',
+      label: 'C — Push Back / Do Not Accept', icon: '✕', prefix: 'PBK'
+    },
   ];
 
   for (const s of sections) {
     if (!s.items || s.items.length === 0) continue;
 
-    const sec = document.createElement('div');
-    sec.className = `review-section ${s.cls}`;
+    const section = document.createElement('div');
+    section.className = 'doc-section';
 
     const hdr = document.createElement('div');
-    hdr.className = 'section-header';
+    hdr.className = 'doc-section-header';
     hdr.innerHTML = `
-      <span class="section-icon">${s.icon}</span>
-      <span class="section-label">${s.label}</span>
-      <span class="section-count">${s.items.length} item${s.items.length !== 1 ? 's' : ''}</span>`;
-    sec.appendChild(hdr);
+      <div class="section-stripe ${s.stripeClass}"></div>
+      <span class="section-heading ${s.headClass}">${s.icon}&nbsp;&nbsp;${s.label}</span>
+      <span class="section-count-badge ${s.badgeClass}">${s.items.length}</span>
+      <span class="section-toggle">▾</span>`;
 
-    const list = document.createElement('div');
-    list.className = 'section-items';
+    const tbody_rows = s.items.map((item, idx) => `
+      <tr>
+        <td style="width:70px;"><div class="finding-id">${s.prefix}-${String(idx+1).padStart(2,'0')}</div></td>
+        <td>
+          <div class="finding-text">${escHtml(item.finding)}</div>
+          <div class="finding-reason"><strong>Rationale:</strong> ${escHtml(item.reason)}</div>
+        </td>
+        <td class="notes-cell">
+          <textarea class="notes-input" placeholder="Auditor notes…" rows="3"></textarea>
+        </td>
+      </tr>`).join('');
 
-    for (const item of s.items) {
-      const el = document.createElement('div');
-      el.className = 'review-item';
-      el.innerHTML = `
-        <div class="item-finding">${escHtml(item.finding)}</div>
-        <div class="item-reason">${escHtml(item.reason)}</div>`;
-      list.appendChild(el);
-    }
+    const tableWrap = document.createElement('div');
+    tableWrap.innerHTML = `
+      <table class="findings-table">
+        <thead>
+          <tr>
+            <th>Ref.</th>
+            <th>Finding &amp; Rationale</th>
+            <th style="width:200px;">Auditor Notes</th>
+          </tr>
+        </thead>
+        <tbody>${tbody_rows}</tbody>
+      </table>`;
 
-    sec.appendChild(list);
-    area.appendChild(sec);
+    // Toggle
+    let open = true;
+    hdr.addEventListener('click', () => {
+      open = !open;
+      tableWrap.style.display = open ? '' : 'none';
+      hdr.querySelector('.section-toggle').textContent = open ? '▾' : '▸';
+    });
+
+    section.appendChild(hdr);
+    section.appendChild(tableWrap);
+    doc.appendChild(section);
   }
+
+  // Sign-off footer
+  const signoff = document.createElement('div');
+  signoff.className = 'doc-signoff';
+  signoff.innerHTML = `
+    <span class="signoff-label">Sign Off</span>
+    <div class="signoff-fields">
+      <div class="signoff-field">
+        <label>Reviewed by</label>
+        <input class="signoff-line" type="text" value="${escHtml(auditor !== '—' ? auditor : '')}" placeholder="Printed name">
+      </div>
+      <div class="signoff-field">
+        <label>Signature</label>
+        <input class="signoff-line" type="text" placeholder="Signature">
+      </div>
+      <div class="signoff-field">
+        <label>Date</label>
+        <input class="signoff-line" type="text" value="${escHtml(date)}" placeholder="YYYY-MM-DD">
+      </div>
+    </div>`;
+
+  doc.appendChild(signoff);
+  area.innerHTML = '';
+  area.appendChild(doc);
+  setStep(3);
 }
 
+// ── Helpers ───────────────────────────────────────────────
 function escHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return String(str||'')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// ── Review ────────────────────────────────────────────────
 async function runReview() {
   const key = document.getElementById('apiKey').value.trim();
-  const text = textarea.value.trim();
+  const textInput = textarea.value.trim();
+  const content = fileContent || textInput;
 
-  if (!key) { alert('Please enter your Anthropic API key.'); return; }
-  if (!text) { alert('Please paste an AI-generated output to review.'); return; }
+  if (!key) { alert('Please enter your Anthropic API key in the top-right field.'); return; }
+  if (!content) { alert('Please upload a document or paste text before running the review.'); return; }
 
   const btn = document.getElementById('reviewBtn');
   const spinner = document.getElementById('spinner');
@@ -748,35 +1490,36 @@ async function runReview() {
   spinner.style.display = 'block';
   btnText.textContent = 'Analyzing…';
 
+  setStep(2);
   showSkeleton();
 
-  const systemPrompt = `You are a senior auditor and AI governance specialist at a Big 4 accounting firm. Your role is to critically review AI-generated audit findings and financial outputs on behalf of human accountants who must sign off on them.
+  const systemPrompt = `You are a senior audit manager and AI governance specialist at a Big 4 accounting firm. Your task is to critically review AI-generated audit findings, financial analyses, and accounting outputs on behalf of human auditors who must sign off on them before they are used.
 
-You will classify every substantive claim or conclusion in the text into one of three categories:
+Classify every substantive claim, conclusion, or statement in the text into exactly one of three categories:
 
-ACCEPT — The claim appears well-supported, factual, or procedurally sound. It does not require additional human verification beyond a quick read.
+ACCEPT — The claim is well-supported, procedurally sound, verifiable on its face, or is a straightforward factual observation. No additional human verification is required beyond a routine read-through.
 
-VERIFY — The claim may be correct but requires a human accountant to independently check before signing off. This includes: assumptions that sound plausible but aren't verified, estimates that may carry material risk, conclusions drawn from samples that may not be representative, and statements that rely on management representations without independent corroboration.
+VERIFY — The claim may be correct but requires the auditor to independently verify before signing off. This includes: estimates or assumptions that are plausible but unconfirmed; conclusions drawn from samples that may not be representative; statements relying on management representations without independent corroboration; calculations that have not been independently reperformed; or conclusions that follow logically but depend on inputs not shown.
 
-PUSH BACK — The claim is potentially wrong, makes an unsupported logical leap, lacks sufficient evidence, uses vague language to mask uncertainty, or should not be trusted without significant additional work. This includes: conclusions stated as facts without evidence, blanket statements that ignore exceptions, inappropriate reliance on AI-generated data, and anything that would be professionally risky to sign off on.
+PUSH BACK — The claim is potentially wrong, makes an unsupported logical leap, uses vague language to mask uncertainty, draws a conclusion stronger than the evidence supports, or would be professionally risky to rely on without significant further investigation. This includes: sweeping conclusions stated as facts without evidence ("no material errors were detected"); inappropriate reliance on AI-generated data as if it were independently verified; blanket statements that ignore exceptions; and anything that would require substantially more audit work before a prudent auditor would accept it.
 
-Return a JSON object with this exact structure:
+Lean toward flagging. The cost of a missed material error far exceeds the cost of an extra verification step.
+
+Return a JSON object with EXACTLY this structure (no markdown, no commentary — raw JSON only):
 {
   "accept": [
-    { "finding": "brief description of the claim", "reason": "one-line explanation of why it's acceptable" }
+    { "finding": "short phrase identifying the exact claim", "reason": "one concrete sentence explaining why it is acceptable" }
   ],
   "verify": [
-    { "finding": "brief description of the claim", "reason": "one-line explanation of what specifically to check" }
+    { "finding": "short phrase identifying the exact claim", "reason": "one concrete sentence stating what specifically needs to be checked and why" }
   ],
   "push_back": [
-    { "finding": "brief description of the claim", "reason": "one-line explanation of the problem" }
+    { "finding": "short phrase identifying the exact claim", "reason": "one concrete sentence identifying the specific problem or gap" }
   ],
   "overall_risk": "Low | Moderate | High | Very High"
 }
 
-Be specific. Do not be vague. Each item's "finding" should be a short phrase identifying the exact claim (not the full sentence). Each "reason" should be a concrete, actionable one-liner. Lean toward flagging rather than accepting when uncertain — the cost of missing a material error is higher than the cost of an extra verification step. Return only valid JSON.`;
-
-  const userPrompt = `Please review the following AI-generated audit output:\n\n${text}`;
+Each "finding" must be a short phrase (not a full sentence) that uniquely identifies the claim. Each "reason" must be a single actionable sentence. Return only valid JSON.`;
 
   try {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -791,7 +1534,7 @@ Be specific. Do not be vague. Each item's "finding" should be a short phrase ide
         model: 'claude-opus-4-8',
         max_tokens: 2048,
         system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }]
+        messages: [{ role: 'user', content: `Review the following AI-generated output:\n\n${content}` }]
       })
     });
 
@@ -802,11 +1545,8 @@ Be specific. Do not be vague. Each item's "finding" should be a short phrase ide
 
     const result = await resp.json();
     const raw = result.content[0].text.trim();
-
-    // Extract JSON even if wrapped in markdown
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('Model returned unexpected format.');
-
+    if (!jsonMatch) throw new Error('Model returned an unexpected format. Please try again.');
     const parsed = JSON.parse(jsonMatch[0]);
     renderResults(parsed);
 
@@ -815,7 +1555,7 @@ Be specific. Do not be vague. Each item's "finding" should be a short phrase ide
   } finally {
     btn.disabled = false;
     spinner.style.display = 'none';
-    btnText.textContent = 'Review Output';
+    btnText.textContent = 'Run Review';
   }
 }
 </script>
