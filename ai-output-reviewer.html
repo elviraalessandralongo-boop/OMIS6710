@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Output Reviewer — Governance & Verification</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f5f5f0;
+    --surface: #ffffff;
+    --border: #e0ddd6;
+    --text: #1a1a1a;
+    --text-muted: #6b6b6b;
+    --accent: #1a3a5c;
+    --accent-light: #e8eef5;
+    --accept: #1a6b3a;
+    --accept-bg: #f0f8f3;
+    --accept-border: #b8ddc6;
+    --verify: #7a5c00;
+    --verify-bg: #fffbf0;
+    --verify-border: #f0d060;
+    --push: #8b1a1a;
+    --push-bg: #fff5f5;
+    --push-border: #f0b8b8;
+    --radius: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Header */
+  header {
+    background: var(--accent);
+    color: white;
+    padding: 0 32px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 28px;
+    height: 28px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+
+  .logo-text {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+  }
+
+  .logo-sub {
+    font-size: 11px;
+    opacity: 0.6;
+    font-weight: 400;
+    margin-left: 2px;
+  }
+
+  .header-badge {
+    font-size: 11px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.5px;
+  }
+
+  /* API Key bar */
+  .api-bar {
+    background: var(--accent-light);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 32px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .api-bar label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+
+  .api-bar input {
+    flex: 1;
+    max-width: 380px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 12px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    background: white;
+    color: var(--text);
+    outline: none;
+  }
+
+  .api-bar input:focus { border-color: var(--accent); }
+
+  .api-note {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* Main layout */
+  main {
+    flex: 1;
+    display: flex;
+    gap: 0;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  /* Left panel */
+  .panel-left {
+    width: 48%;
+    min-width: 380px;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .panel-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+
+  .panel-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 3px;
+  }
+
+  .examples-row {
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    background: #fafaf8;
+  }
+
+  .examples-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    margin-right: 2px;
+  }
+
+  .example-btn {
+    font-size: 11px;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: white;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .example-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-light);
+  }
+
+  textarea {
+    flex: 1;
+    padding: 20px 24px;
+    border: none;
+    outline: none;
+    resize: none;
+    font-size: 13.5px;
+    line-height: 1.65;
+    color: var(--text);
+    font-family: inherit;
+    background: white;
+  }
+
+  textarea::placeholder { color: #bbb; }
+
+  .action-bar {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    background: white;
+  }
+
+  .char-count {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .review-btn {
+    padding: 9px 22px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: opacity 0.15s;
+    letter-spacing: 0.2px;
+  }
+
+  .review-btn:hover { opacity: 0.9; }
+  .review-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Right panel */
+  .panel-right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg);
+  }
+
+  .results-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* Empty state */
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 40px;
+  }
+
+  .empty-icon {
+    width: 48px;
+    height: 48px;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    opacity: 0.5;
+  }
+
+  .empty-title { font-size: 14px; font-weight: 500; }
+  .empty-sub { font-size: 12px; max-width: 260px; line-height: 1.5; }
+
+  /* Review sections */
+  .review-section {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  .section-header {
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-icon { font-size: 16px; }
+
+  .section-label {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .section-count {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+
+  .accept-section .section-header { background: var(--accept-bg); border-bottom-color: var(--accept-border); }
+  .accept-section .section-label { color: var(--accept); }
+  .accept-section .section-count { background: var(--accept-border); color: var(--accept); }
+
+  .verify-section .section-header { background: var(--verify-bg); border-bottom-color: var(--verify-border); }
+  .verify-section .section-label { color: var(--verify); }
+  .verify-section .section-count { background: var(--verify-border); color: var(--verify); }
+
+  .push-section .section-header { background: var(--push-bg); border-bottom-color: var(--push-border); }
+  .push-section .section-label { color: var(--push); }
+  .push-section .section-count { background: var(--push-border); color: var(--push); }
+
+  .section-items { padding: 4px 0; }
+
+  .review-item {
+    padding: 12px 18px;
+    display: grid;
+    grid-template-rows: auto auto;
+    gap: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .review-item:last-child { border-bottom: none; }
+
+  .item-finding {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.4;
+  }
+
+  .item-reason {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.45;
+  }
+
+  /* Summary bar */
+  .summary-bar {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+  }
+
+  .summary-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+  }
+
+  .summary-chips {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .chip {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+
+  .chip-accept { background: var(--accept-bg); color: var(--accept); border: 1px solid var(--accept-border); }
+  .chip-verify { background: var(--verify-bg); color: var(--verify); border: 1px solid var(--verify-border); }
+  .chip-push   { background: var(--push-bg);   color: var(--push);   border: 1px solid var(--push-border); }
+
+  .confidence-pill {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: var(--accent-light);
+    color: var(--accent);
+    font-weight: 500;
+    border: 1px solid #c0d0e0;
+  }
+
+  /* Error state */
+  .error-box {
+    background: var(--push-bg);
+    border: 1px solid var(--push-border);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    color: var(--push);
+    font-size: 13px;
+  }
+
+  /* Loading skeleton */
+  .skeleton-section {
+    background: var(--surface);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .skeleton-bar {
+    height: 14px;
+    background: linear-gradient(90deg, #f0f0ee 25%, #e8e8e4 50%, #f0f0ee 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    border-radius: 4px;
+    margin: 12px 18px;
+  }
+
+  .skeleton-bar.short { width: 40%; }
+  .skeleton-bar.full  { width: 85%; }
+  .skeleton-bar.med   { width: 65%; }
+
+  @keyframes shimmer { to { background-position: -200% 0; } }
+
+  /* Footer */
+  footer {
+    padding: 10px 32px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .footer-left {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .footer-right {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">⚖</div>
+    <div>
+      <span class="logo-text">AI Output Reviewer</span>
+      <span class="logo-sub"> — Governance & Verification</span>
+    </div>
+  </div>
+  <div class="header-badge">GOVERNANCE TOOL · PROTOTYPE</div>
+</header>
+
+<div class="api-bar">
+  <label for="apiKey">Anthropic API Key</label>
+  <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off">
+  <span class="api-note">Key is used client-side only and never stored.</span>
+</div>
+
+<main>
+  <!-- Left: Input -->
+  <div class="panel-left">
+    <div class="panel-header">
+      <div class="panel-title">AI-Generated Output</div>
+      <div class="panel-desc">Paste any AI-generated audit finding, financial analysis, or accounting output below.</div>
+    </div>
+
+    <div class="examples-row">
+      <span class="examples-label">Load example →</span>
+      <button class="example-btn" onclick="loadExample(0)">Revenue Recognition</button>
+      <button class="example-btn" onclick="loadExample(1)">Going Concern</button>
+      <button class="example-btn" onclick="loadExample(2)">Inventory Valuation</button>
+      <button class="example-btn" onclick="loadExample(3)">Related Party</button>
+    </div>
+
+    <textarea id="inputText" placeholder="Paste AI-generated audit finding or financial output here…
+
+Example: 'Based on our analysis, revenue recognition appears appropriate. The company recorded $42.3M in Q3 revenue, consistent with prior periods...'"></textarea>
+
+    <div class="action-bar">
+      <span class="char-count" id="charCount">0 characters</span>
+      <button class="review-btn" id="reviewBtn" onclick="runReview()">
+        <span class="spinner" id="spinner"></span>
+        <span id="btnText">Review Output</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Right: Results -->
+  <div class="panel-right">
+    <div class="results-area" id="resultsArea">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">⚖</div>
+        <div class="empty-title">No output reviewed yet</div>
+        <div class="empty-sub">Paste an AI-generated finding on the left and click Review to begin governance analysis.</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="footer-left">AI outputs require human governance. This tool assists — it does not replace — professional judgement.</div>
+  <div class="footer-right">Powered by Claude · For demonstration purposes</div>
+</footer>
+
+<script>
+const EXAMPLES = [
+  {
+    label: "Revenue Recognition",
+    text: `Revenue Recognition Analysis — Q3 FY2024
+
+Based on our AI-assisted review, the company's revenue recognition appears appropriate and in compliance with ASC 606. Total revenue of $42.3M was recorded in Q3, representing a 12% increase year-over-year.
+
+Key findings:
+- Performance obligations have been identified and are consistent with the five-step model under ASC 606.
+- Revenue is being recognized at the point of delivery for product sales, which aligns with the contract terms reviewed.
+- Deferred revenue balance of $8.1M appears reasonable given the subscription component of the business.
+- The company's percentage-of-completion method for its long-term contracts is applied consistently with prior periods.
+- No material cutoff errors were detected in the sample of 30 invoices reviewed.
+- Contract modifications in Q3 were appropriately accounted for as modifications rather than new contracts.
+- Variable consideration estimates appear conservative, with no evidence of significant reversal risk.
+
+Overall assessment: Revenue recognition is materially accurate and no audit adjustments are required.`
+  },
+  {
+    label: "Going Concern",
+    text: `Going Concern Assessment — FY2024 Annual Audit
+
+AI-generated preliminary assessment:
+
+The entity does not exhibit going concern indicators based on our automated financial ratio analysis. Current ratio stands at 1.4x, and the debt-to-equity ratio is 2.1x, both within industry norms. Cash on hand of $3.2M is sufficient to cover 90 days of operating expenses.
+
+Key observations:
+- The company renewed its $15M revolving credit facility in October 2024 with no covenant violations reported.
+- Operating cash flow for the trailing twelve months was positive at $1.8M.
+- Net loss of $4.1M in FY2024 is attributable to a one-time restructuring charge and does not reflect ongoing operational difficulties.
+- Management has a credible plan to return to profitability by Q2 FY2025 through headcount reduction and new contract wins.
+- Two major customers represent 61% of revenue; no customer churn was identified in the period.
+- The company is in compliance with all debt covenants as of the balance sheet date.
+
+Conclusion: Going concern disclosure is not required. Standard audit opinion is appropriate.`
+  },
+  {
+    label: "Inventory Valuation",
+    text: `Inventory Valuation Review — Manufacturing Client
+
+AI-assisted analysis of inventory valuation as at December 31, 2024:
+
+Total inventory balance of $19.7M has been assessed as fairly stated. The following observations support this conclusion:
+
+- Raw materials ($6.2M): Valued at cost on a FIFO basis. Recent purchase invoices confirm costs are aligned with carrying values.
+- Work-in-progress ($5.1M): Stage-of-completion estimates provided by management appear reasonable based on production schedules reviewed.
+- Finished goods ($8.4M): Net realizable value (NRV) testing performed on the top 20 SKUs by value. All items tested were above cost.
+- Obsolescence reserve of $0.4M has been maintained at the same level as the prior year, which appears adequate.
+- No significant slow-moving inventory was identified in the AI scan of inventory aging data.
+- Physical inventory count results were within a 0.3% variance of book records, which is acceptable.
+
+Recommendation: No write-down required. Inventory is fairly stated at the lower of cost and NRV.`
+  },
+  {
+    label: "Related Party",
+    text: `Related Party Transactions Review — Q4 FY2024
+
+Automated screening of related party transactions has been completed using AI-assisted journal entry analysis and vendor master data review.
+
+Summary findings:
+- 14 related party transactions were identified totaling $2.8M, all of which appear to have been disclosed in the notes to the financial statements.
+- A management consulting fee of $900K was paid to a firm owned by the CEO's spouse. This is disclosed in the notes and described as an arm's length arrangement.
+- The company sold inventory to a subsidiary at a 15% markup, consistent with its documented transfer pricing policy.
+- Intercompany loans of $3.5M bear interest at 4.2%, which approximates market rates for similar instruments.
+- Board approval documentation was found for all material related party transactions reviewed.
+- No undisclosed related party relationships were identified in the AI scan of email metadata and vendor records.
+
+Overall conclusion: Related party disclosures are complete and transactions are appropriately authorized. No further procedures are required.`
+  }
+];
+
+const textarea = document.getElementById('inputText');
+const charCount = document.getElementById('charCount');
+
+textarea.addEventListener('input', () => {
+  const n = textarea.value.length;
+  charCount.textContent = n.toLocaleString() + ' character' + (n !== 1 ? 's' : '');
+});
+
+function loadExample(i) {
+  textarea.value = EXAMPLES[i].text;
+  textarea.dispatchEvent(new Event('input'));
+  document.getElementById('emptyState') && (document.getElementById('emptyState').style.display = 'flex');
+  clearResults();
+}
+
+function clearResults() {
+  const area = document.getElementById('resultsArea');
+  area.innerHTML = `<div class="empty-state" id="emptyState">
+    <div class="empty-icon">⚖</div>
+    <div class="empty-title">No output reviewed yet</div>
+    <div class="empty-sub">Paste an AI-generated finding on the left and click Review to begin governance analysis.</div>
+  </div>`;
+}
+
+function showSkeleton() {
+  const area = document.getElementById('resultsArea');
+  area.innerHTML = `
+    <div class="skeleton-section">
+      <div class="skeleton-bar short"></div>
+      <div class="skeleton-bar full"></div>
+      <div class="skeleton-bar med"></div>
+      <div class="skeleton-bar full"></div>
+    </div>
+    <div class="skeleton-section">
+      <div class="skeleton-bar short"></div>
+      <div class="skeleton-bar full"></div>
+      <div class="skeleton-bar med"></div>
+    </div>
+    <div class="skeleton-section">
+      <div class="skeleton-bar short"></div>
+      <div class="skeleton-bar full"></div>
+      <div class="skeleton-bar med"></div>
+      <div class="skeleton-bar full"></div>
+    </div>`;
+}
+
+function showError(msg) {
+  document.getElementById('resultsArea').innerHTML =
+    `<div class="error-box">🚩 Error: ${msg}</div>`;
+}
+
+function renderResults(data) {
+  const area = document.getElementById('resultsArea');
+  area.innerHTML = '';
+
+  const totalItems = data.accept.length + data.verify.length + data.push_back.length;
+
+  // Summary bar
+  const summary = document.createElement('div');
+  summary.className = 'summary-bar';
+  summary.innerHTML = `
+    <span class="summary-label">Review Summary</span>
+    <div class="summary-chips">
+      <span class="chip chip-accept">✅ ${data.accept.length} accepted</span>
+      <span class="chip chip-verify">⚠️ ${data.verify.length} to verify</span>
+      <span class="chip chip-push">🚩 ${data.push_back.length} push back</span>
+    </div>
+    <span class="confidence-pill">Overall risk: ${data.overall_risk || 'Moderate'}</span>`;
+  area.appendChild(summary);
+
+  const sections = [
+    { key: 'accept',    cls: 'accept-section', icon: '✅', label: 'Accept',     items: data.accept },
+    { key: 'verify',    cls: 'verify-section', icon: '⚠️', label: 'Verify',     items: data.verify },
+    { key: 'push_back', cls: 'push-section',   icon: '🚩', label: 'Push Back',  items: data.push_back },
+  ];
+
+  for (const s of sections) {
+    if (!s.items || s.items.length === 0) continue;
+
+    const sec = document.createElement('div');
+    sec.className = `review-section ${s.cls}`;
+
+    const hdr = document.createElement('div');
+    hdr.className = 'section-header';
+    hdr.innerHTML = `
+      <span class="section-icon">${s.icon}</span>
+      <span class="section-label">${s.label}</span>
+      <span class="section-count">${s.items.length} item${s.items.length !== 1 ? 's' : ''}</span>`;
+    sec.appendChild(hdr);
+
+    const list = document.createElement('div');
+    list.className = 'section-items';
+
+    for (const item of s.items) {
+      const el = document.createElement('div');
+      el.className = 'review-item';
+      el.innerHTML = `
+        <div class="item-finding">${escHtml(item.finding)}</div>
+        <div class="item-reason">${escHtml(item.reason)}</div>`;
+      list.appendChild(el);
+    }
+
+    sec.appendChild(list);
+    area.appendChild(sec);
+  }
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+async function runReview() {
+  const key = document.getElementById('apiKey').value.trim();
+  const text = textarea.value.trim();
+
+  if (!key) { alert('Please enter your Anthropic API key.'); return; }
+  if (!text) { alert('Please paste an AI-generated output to review.'); return; }
+
+  const btn = document.getElementById('reviewBtn');
+  const spinner = document.getElementById('spinner');
+  const btnText = document.getElementById('btnText');
+
+  btn.disabled = true;
+  spinner.style.display = 'block';
+  btnText.textContent = 'Analyzing…';
+
+  showSkeleton();
+
+  const systemPrompt = `You are a senior auditor and AI governance specialist at a Big 4 accounting firm. Your role is to critically review AI-generated audit findings and financial outputs on behalf of human accountants who must sign off on them.
+
+You will classify every substantive claim or conclusion in the text into one of three categories:
+
+ACCEPT — The claim appears well-supported, factual, or procedurally sound. It does not require additional human verification beyond a quick read.
+
+VERIFY — The claim may be correct but requires a human accountant to independently check before signing off. This includes: assumptions that sound plausible but aren't verified, estimates that may carry material risk, conclusions drawn from samples that may not be representative, and statements that rely on management representations without independent corroboration.
+
+PUSH BACK — The claim is potentially wrong, makes an unsupported logical leap, lacks sufficient evidence, uses vague language to mask uncertainty, or should not be trusted without significant additional work. This includes: conclusions stated as facts without evidence, blanket statements that ignore exceptions, inappropriate reliance on AI-generated data, and anything that would be professionally risky to sign off on.
+
+Return a JSON object with this exact structure:
+{
+  "accept": [
+    { "finding": "brief description of the claim", "reason": "one-line explanation of why it's acceptable" }
+  ],
+  "verify": [
+    { "finding": "brief description of the claim", "reason": "one-line explanation of what specifically to check" }
+  ],
+  "push_back": [
+    { "finding": "brief description of the claim", "reason": "one-line explanation of the problem" }
+  ],
+  "overall_risk": "Low | Moderate | High | Very High"
+}
+
+Be specific. Do not be vague. Each item's "finding" should be a short phrase identifying the exact claim (not the full sentence). Each "reason" should be a concrete, actionable one-liner. Lean toward flagging rather than accepting when uncertain — the cost of missing a material error is higher than the cost of an extra verification step. Return only valid JSON.`;
+
+  const userPrompt = `Please review the following AI-generated audit output:\n\n${text}`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-calls': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-8',
+        max_tokens: 2048,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }]
+      })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error?.message || `HTTP ${resp.status}`);
+    }
+
+    const result = await resp.json();
+    const raw = result.content[0].text.trim();
+
+    // Extract JSON even if wrapped in markdown
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Model returned unexpected format.');
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    renderResults(parsed);
+
+  } catch (e) {
+    showError(e.message);
+  } finally {
+    btn.disabled = false;
+    spinner.style.display = 'none';
+    btnText.textContent = 'Review Output';
+  }
+}
+</script>
+</body>
+</html>
